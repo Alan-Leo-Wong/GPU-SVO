@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.33424.131
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GPU-SVO", "GPU-SVO.vcxproj", "{3B383BD5-76F9-47DD-9E38-74771772E154}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3B383BD5-76F9-47DD-9E38-74771772E154}.Debug|x64.ActiveCfg = Debug|x64
+		{3B383BD5-76F9-47DD-9E38-74771772E154}.Debug|x64.Build.0 = Debug|x64
+		{3B383BD5-76F9-47DD-9E38-74771772E154}.Release|x64.ActiveCfg = Release|x64
+		{3B383BD5-76F9-47DD-9E38-74771772E154}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {73FB0FD3-9A7C-4BBE-B2CD-3BF478E7514B}
+	EndGlobalSection
+EndGlobal
