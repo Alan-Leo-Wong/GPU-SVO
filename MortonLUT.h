@@ -40,7 +40,7 @@ static constexpr uint32_t h_morton256_x[256] =
 	0x00249201, 0x00249208, 0x00249209, 0x00249240, 0x00249241, 0x00249248, 0x00249249
 };
 
-static constexpr uint32_t h_morton256_y[256] = 
+static constexpr uint32_t h_morton256_y[256] =
 {
 	0x00000000,
 	0x00000002, 0x00000010, 0x00000012, 0x00000080, 0x00000082, 0x00000090, 0x00000092, 0x00000400,
@@ -77,7 +77,7 @@ static constexpr uint32_t h_morton256_y[256] =
 	0x00492402, 0x00492410, 0x00492412, 0x00492480, 0x00492482, 0x00492490, 0x00492492
 };
 
-static constexpr uint32_t h_morton256_z[256] = 
+static constexpr uint32_t h_morton256_z[256] =
 {
 	0x00000000,
 	0x00000004, 0x00000020, 0x00000024, 0x00000100, 0x00000104, 0x00000120, 0x00000124, 0x00000800,
@@ -114,7 +114,7 @@ static constexpr uint32_t h_morton256_z[256] =
 	0x00924804, 0x00924820, 0x00924824, 0x00924900, 0x00924904, 0x00924920, 0x00924924
 };
 
-__constant__ uint32_t d_morton256_x[256] = 
+__constant__ uint32_t d_morton256_x[256] =
 {
 	0x00000000,
 	0x00000001, 0x00000008, 0x00000009, 0x00000040, 0x00000041, 0x00000048, 0x00000049, 0x00000200,
@@ -226,11 +226,12 @@ __constant__ uint32_t d_morton256_z[256] =
 };
 
 // Encode morton code using LUT table
-__device__ inline uint64_t mortonEncode_LUT(uint32_t x, uint32_t y, uint32_t z) {
-	uint64_t answer = 0;
+__device__ inline uint32_t mortonEncode_LUT(uint32_t x, uint32_t y, uint32_t z) {
+	/*uint64_t answer = 0;
 	answer = d_morton256_z[(z >> 16) & 0xFF] |
 		d_morton256_y[(y >> 16) & 0xFF] |
-		d_morton256_x[(x >> 16) & 0xFF];
+		d_morton256_x[(x >> 16) & 0xFF];*/
+	uint32_t answer = 0;
 	answer = answer << 48 |
 		d_morton256_z[(z >> 8) & 0xFF] |
 		d_morton256_y[(y >> 8) & 0xFF] |
@@ -240,4 +241,20 @@ __device__ inline uint64_t mortonEncode_LUT(uint32_t x, uint32_t y, uint32_t z) 
 		d_morton256_y[(y) & 0xFF] |
 		d_morton256_x[(x) & 0xFF];
 	return answer;
+}
+
+// Check if a voxel in the voxel table is set
+inline __host__ __device__ bool checkVoxel(size_t x, size_t y, size_t z, const Eigen::Vector3i gridsize, const unsigned int* vtable) {
+	size_t location = x + (y * gridsize.x()) + (z * gridsize.x() * gridsize.y());
+	size_t int_location = location / size_t(32);
+	/*size_t max_index = (gridsize*gridsize*gridsize) / __int64(32);
+	if (int_location >= max_index){
+	fprintf(stdout, "Requested index too big: %llu \n", int_location);
+	fprintf(stdout, "X %llu Y %llu Z %llu \n", int_location);
+	}*/
+	unsigned int bit_pos = size_t(31) - (location % size_t(32)); // we count bit positions RtL, but array indices LtR
+	if ((vtable[int_location]) & (1 << bit_pos)) {
+		return true;
+	}
+	return false;
 }

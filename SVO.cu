@@ -1,17 +1,10 @@
 #include "SVO.h"
 #include "CUDAUtil.h"
 #include "MortonLUT.h"
+#include <thrust/scan.h>
 #include <thrust/device_vector.h>
 
-// Set a bit in the giant voxel table. This involves doing an atomic operation on a 32-bit word in memory.
-// Blocking other threads writing to it for a very short time
-__device__ __inline__ void setBit(uint32_t* voxel_table, size_t index) {
-	size_t int_location = index / size_t(32); // voxels come in groups of 32
-	// we count bit positions RtL, but bit array indices(i.e. group index) LtR (To reverse bit positions in RtL to LtR, we should perform '31 - index % 32')
-	uint32_t bit_pos = size_t(31) - (index % size_t(32));
-	uint32_t mask = 1 << bit_pos;
-	atomicOr(&(voxel_table[int_location]), mask);
-}
+#define MORTON_32_FLAG 0x80000000
 
 __global__ void surfaceVoxelize(const int nTris,
 	const Eigen::Vector3i surfaceVoxelGridSize,
@@ -30,7 +23,7 @@ __global__ void surfaceVoxelize(const int nTris,
 		size_t t = thread_id * 9; // triangle contains 9 vertices
 
 		// COMPUTE COMMON TRIANGLE PROPERTIES
-		// Move vertices to origin using bbox
+		// Move vertices to origin using modelBBox
 		Eigen::Vector3f v0 = Eigen::Vector3f(d_triangle_data[t], d_triangle_data[t + 1], d_triangle_data[t + 2]) - modelBBox.min;
 		Eigen::Vector3f v1 = Eigen::Vector3f(d_triangle_data[t + 3], d_triangle_data[t + 4], d_triangle_data[t + 5]) - modelBBox.min;
 		Eigen::Vector3f v2 = Eigen::Vector3f(d_triangle_data[t + 6], d_triangle_data[t + 7], d_triangle_data[t + 8]) - modelBBox.min;
@@ -131,8 +124,8 @@ __global__ void surfaceVoxelize(const int nTris,
 					if ((n_zx_e1.dot(p_zx) + d_xz_e1) < 0.0f) { continue; }
 					if ((n_zx_e2.dot(p_zx) + d_xz_e2) < 0.0f) { continue; }
 
-					size_t location = mortonEncode_LUT(x, y, z);
-					setBit(d_voxelTable, location);
+					size_t mortonCode = mortonEncode_LUT(x, y, z);
+					atomicExch(d_voxelTable + mortonCode, mortonCode | MORTON_32_FLAG); // 最高位设置为1，代表这是个表面的voxel
 				}
 			}
 		}
@@ -140,12 +133,19 @@ __global__ void surfaceVoxelize(const int nTris,
 	}
 }
 
+template <typename T> struct sumFlag : public thrust::binary_function<T, T, T> {
+	__host__ __device__ T operator()(const T&, const T& b) {
+		// printf("%lu %d\n", b, (b >> 31) & 1);
+		return (b >> 31) & 1;
+	}
+};
 void SparseVoxelOctree::constructFineNodes()
 {
 	uint32_t* d_voxelTabel;
-	size_t voxelTabelize = surfaceVoxelGridSize.x() * surfaceVoxelGridSize.y() * surfaceVoxelGridSize.z() / 8;
-	CUDA_CHECK(cudaMalloc((void**)&d_voxelTabel, sizeof(uint32_t) * voxelTabelize));
-	CUDA_CHECK(cudaMemset(d_voxelTabel, 0, sizeof(uint32_t) * voxelTabelize));
+	size_t voxelTabeSize = (size_t)((size_t)surfaceVoxelGridSize.x() * (size_t)surfaceVoxelGridSize.y() * (size_t)surfaceVoxelGridSize.z());
+	//size_t voxelTabelize = surfaceVoxelGridSize.x() * surfaceVoxelGridSize.y() * surfaceVoxelGridSize.z() / 32.0f;
+	CUDA_CHECK(cudaMalloc((void**)&d_voxelTabel, sizeof(uint32_t) * voxelTabeSize));
+	CUDA_CHECK(cudaMemset(d_voxelTabel, 0, sizeof(uint32_t) * voxelTabeSize));
 
 	// Estimate best block and grid size using CUDA Occupancy Calculator
 	int blockSize;   // The launch configurator returned block size 
@@ -158,4 +158,19 @@ void SparseVoxelOctree::constructFineNodes()
 		(modelBBox.max.y() - modelBBox.min.y()) / surfaceVoxelGridSize.y(),
 		(modelBBox.max.z() - modelBBox.min.z()) / surfaceVoxelGridSize.z(),
 	};
+	float* d_triangle_data = meshToGPU_thrust(points);
+
+	surfaceVoxelize << <gridSize, blockSize >> > (nTris, modelBBox, unitVoxelSize, d_triangleData, d_voxelTabel);
+
+	// compute number of surface voxels
+	thrust::device_vector<size_t> sumVoxels;
+	uint32_t lastVoxelFlag = 0;
+	CUDA_CHECK(cudaMemcpy(&lastVoxelFlag, d_voxelTabel + voxelTabeSize, sizeof(uint32_t), cudaMemcpyDeviceToHost));
+	if ((lastVoxelFlag >> 31) & 1) lastVoxelFlag = 1;
+	thrust::exclusive_scan(d_voxelTabel, d_voxelTabel + voxelTabeSize, sumVoxels.begin(), 0, sumFlag<uint32_t>());
+	thrust::inclusive_scan(sumVoxels.begin(), sumVoxels.end(), sumVoxels.begin());
+	size_t nVoxels = *(sumVoxels.end()) + lastVoxelFlag;
+
+	// compact surface voxels
+
 }

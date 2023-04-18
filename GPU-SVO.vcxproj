@@ -85,6 +85,7 @@
   <ItemGroup>
     <ClInclude Include="BaseModel.h" />
     <ClInclude Include="CUDAUtil.h" />
+    <ClInclude Include="IO.h" />
     <ClInclude Include="MortonLUT.h" />
     <ClInclude Include="SVO.h" />
   </ItemGroup>

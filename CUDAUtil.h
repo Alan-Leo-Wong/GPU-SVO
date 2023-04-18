@@ -3,6 +3,8 @@
 #include <iostream>
 #include <Eigen\Dense>
 #include <cuda_runtime.h>
+#include <thrust\host_vector.h>
+#include <thrust\device_vector.h>
 #include <device_launch_parameters.h>
 #ifdef __CUDACC__
 #define CUDA_CALLABLE_MEMBER __host__ __device__
@@ -100,4 +102,23 @@ inline CUDA_CALLABLE_MEMBER Eigen::Vector3f clamp(Eigen::Vector3f v, Eigen::Vect
 inline CUDA_CALLABLE_MEMBER Eigen::Vector3i clamp(Eigen::Vector3i v, Eigen::Vector3i a, Eigen::Vector3i b)
 {
     return Eigen::Vector3i(clamp(v.x(), a.x(), b.x()), clamp(v.y(), a.y(), b.y()), clamp(v.z(), a.z(), b.z()));
+}
+
+thrust::host_vector<Eigen::Vector3f>* h_triangleThrustVec;
+thrust::device_vector<Eigen::Vector3f>* d_triangleThrustVec;
+
+float* meshToGPU_thrust(const std::vector<Eigen::Vector3f> mesh) {
+    // create vectors on heap 
+    //h_triangleThrustVec = new thrust::host_vector<Eigen::Vector3f>;
+    d_triangleThrustVec = new thrust::device_vector<Eigen::Vector3f>;
+    // fill host vector
+    *d_triangleThrustVec = mesh;
+    //return ((*d_triangleThrustVec).data()->data());
+    return (float*)thrust::raw_pointer_cast(&((*d_triangleThrustVec)[0]));
+}
+
+void cleanup_thrust() {
+    fprintf(stdout, "[Mesh] Freeing Thrust host and device vectors \n");
+    if (d_triangleThrustVec) free(d_triangleThrustVec);
+    if (h_triangleThrustVec) free(h_triangleThrustVec);
 }
