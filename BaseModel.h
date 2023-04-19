@@ -36,11 +36,11 @@ struct VoxelData {
 class BaseModel
 {
 protected:
-	uint32_t nTris;
+	uint32_t nModelTris;
 	uint32_t nPoints;
 
 	std::vector<Eigen::Vector3i> idx2Points;
-	std::vector<Eigen::Vector3f> points;
+	std::vector<Eigen::Vector3f> modelPoints;
 
 	AABox<Eigen::Vector3f> modelBBox;
 
@@ -62,7 +62,7 @@ void BaseModel::loadOBJ(const std::string& in_file)
 	while (!in.getline(buffer, 255).eof()) {
 		if (buffer[0] == 'v' && (buffer[1] == ' ' || buffer[1] == 32)) {
 			if (sscanf_s(buffer, "v %f %f %f", &x, &y, &z) == 3)
-				points.emplace_back(Eigen::Vector3f{ x, y, z });
+				modelPoints.emplace_back(Eigen::Vector3f{ x, y, z });
 		}
 		else if (buffer[0] == 'f' && (buffer[1] == ' ' || buffer[1] == 32)) {
 			if (sscanf_s(buffer, "f %d//%d %d//%d %d//%d", &f0, &_f0, &f1, &_f1, &f2, &_f2) == 6)

@@ -6,10 +6,15 @@
 #include <thrust\host_vector.h>
 #include <thrust\device_vector.h>
 #include <device_launch_parameters.h>
+
+#ifndef __CUDACC__
+#  define __CUDACC__
+#endif // !__CUDACC__
+
 #ifdef __CUDACC__
-#define CUDA_CALLABLE_MEMBER __host__ __device__
+#  define CUDA_CALLABLE_MEMBER __host__ __device__
 #else
-#define CUDA_CALLABLE_MEMBER
+#  define CUDA_CALLABLE_MEMBER
 #endif
 
 #define CUDA_CHECK(call)                                                      \

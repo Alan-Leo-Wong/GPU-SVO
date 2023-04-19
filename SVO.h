@@ -20,6 +20,7 @@ struct SparseVoxelOctree : public BaseModel
 private:
 	int depth;
 	Eigen::Vector3i surfaceVoxelGridSize;
+	vector<size_t> depthNumNodes; // 每一层的八叉树节点数
 	vector<vector<SVONode>> depthNodes;
 
 public:
