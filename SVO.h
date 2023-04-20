@@ -55,7 +55,8 @@ public:
 
 public:
 
-	bool constructFineNodes(thrust::device_vector<uint32_t>& refineNodeParentArray); // construct nodes in `depth - 1`
+	bool constructFineNodes(thrust::device_vector<uint32_t>& d_surfaceNodeParentArray,
+		thrust::device_vector<thrust::device_vector<size_t>>& d_allMorton2Idx); // construct nodes in `depth - 1`
 
 	void createOctree();
 };

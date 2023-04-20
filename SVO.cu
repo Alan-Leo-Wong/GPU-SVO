@@ -187,8 +187,9 @@ __global__ __inline__ void cpNumNodes(const size_t n,
 __global__ __inline__ void createNode(const size_t nNodes,
 	const size_t pactSize,
 	const size_t* d_sumNodesArray,
-	const size_t* d_pactVoxelArray,
-	uint32_t* d_nodeArray)
+	const size_t* d_pactDataArray,
+	uint32_t* d_nodeArray,
+	size_t* d_morton2Idx)
 {
 	extern __shared__ uint32_t sh_nodeMorton[]; // blockSize / 8，数值为8的整数倍
 
@@ -204,9 +205,11 @@ __global__ __inline__ void createNode(const size_t nNodes,
 	{
 		if (tid < pactSize)
 		{
-			const size_t address = d_sumNodesArray[tid] + (d_pactVoxelArray[tid] % 8);
-			d_nodeArray[address] = d_pactVoxelArray[tid];
-			if ((d_pactVoxelArray[tid] / 8) * 8 != 0) sh_nodeMorton[threadIdx.x / 8] = (d_pactVoxelArray[tid] / 8) * 8;
+			const size_t address = d_sumNodesArray[tid] + (d_pactDataArray[tid] % 8);
+			d_nodeArray[address] = d_pactDataArray[tid];
+			d_morton2Idx[d_pactDataArray[tid]] = address;
+
+			if ((d_pactDataArray[tid] / 8) * 8 != 0) sh_nodeMorton[threadIdx.x / 8] = (d_pactDataArray[tid] / 8) * 8;
 		}
 		cg::sync(tile8);
 		//__syncthreads();
@@ -214,12 +217,15 @@ __global__ __inline__ void createNode(const size_t nNodes,
 		// 计算不在voxel里的节点的莫顿码
 		if (d_nodeArray[tid] == 0)
 		{
-			d_nodeArray[tid] = tid % 8 + sh_nodeMorton[threadIdx.x / 8];
+			const uint32_t morton = tid % 8 + sh_nodeMorton[threadIdx.x / 8];
+			d_nodeArray[tid] = morton;
+			d_morton2Idx[morton] = tid;
 		}
 	}
 }
 
-bool SparseVoxelOctree::constructFineNodes(thrust::device_vector<uint32_t>& d_surfaceNodeParentArray)
+bool SparseVoxelOctree::constructFineNodes(thrust::device_vector<uint32_t>& d_surfaceNodeParentArray, 
+	thrust::device_vector<thrust::device_vector<size_t>>& d_allMorton2Idx)
 {
 	uint32_t* d_voxelArray;
 	size_t voxelArraySize = (size_t)((size_t)surfaceVoxelGridSize.x() * (size_t)surfaceVoxelGridSize.y() * (size_t)surfaceVoxelGridSize.z());
@@ -260,7 +266,7 @@ bool SparseVoxelOctree::constructFineNodes(thrust::device_vector<uint32_t>& d_su
 	getOccupancyMaxPotentialBlockSize(nModelTris, minGridSize, blockSize, gridSize, compactArray, 0, 0);
 	compactArray << <gridSize, blockSize >> > (nModelTris, d_isValidVoxel.data().get(), d_voxelArray, d_esumVoxels.data().get(), d_pactVoxelArray.data().get());
 
-	// get surface octree nodes by surface voxels
+	// get octree nodes by surface voxels
 	thrust::device_vector<int> d_nNodesArray(nVoxels, 0); // 节点数量数组
 	getOccupancyMaxPotentialBlockSize(nVoxels, minGridSize, blockSize, gridSize, cpNumNodes, 0, 0);
 	cpNumNodes << <gridSize, blockSize >> > (nVoxels, d_pactVoxelArray.data().get(), d_nNodesArray.data().get(), d_surfaceNodeParentArray.data().get());
@@ -272,11 +278,13 @@ bool SparseVoxelOctree::constructFineNodes(thrust::device_vector<uint32_t>& d_su
 
 	// 节点数组
 	thrust::device_vector<uint32_t> d_nodeArray;
-
-	createNode << <gridSize, blockSize >> > (nNodes, nVoxels, d_sumNodesArray, d_pactVoxelArray.data().get(), d_nodeArray.data().get());
+	uint32_t maxMortonCode = *d_pactVoxelArray.end();
+	thrust::device_vector<size_t> d_morton2Idx(maxMortonCode + 8 - (maxMortonCode % 8)); // 存储morton码到nodeArray下标的映射
+	createNode << <gridSize, blockSize >> > (nNodes, nVoxels, d_sumNodesArray, d_pactVoxelArray.data().get(), d_nodeArray.data().get(), d_morton2Idx.data().get());
 	std::vector<uint32_t> t_vec(d_nNodesArray.size());
 	CUDA_CHECK(cudaMemcpy(t_vec.data(), d_nodeArray.data().get(), sizeof(uint32_t) * d_nodeArray.size(), cudaMemcpyDeviceToHost));
 	tempNodeArray.emplace_back(t_vec);
+	d_allMorton2Idx.push_back(d_morton2Idx);
 
 	// 对表面节点父节点进行compact，去除末端不合法的莫顿码，&0x7fffffff 是为了得到最后一个合法莫顿码所在的位置（去除符号位）
 	uint32_t nParentNodes = *thrust::max_element(d_surfaceNodeParentArray.begin(), d_surfaceNodeParentArray.end());
@@ -291,7 +299,9 @@ bool SparseVoxelOctree::constructFineNodes(thrust::device_vector<uint32_t>& d_su
 void SparseVoxelOctree::createOctree()
 {
 	thrust::device_vector<uint32_t> d_parentMortonArray;
-	if (constructFineNodes(d_parentMortonArray)) // 如果表面节点有父节点，则开始从父节点这一层自下向上构建
+	thrust::device_vector<thrust::device_vector<size_t>> d_allMorton2Idx;
+	int depth = 1;
+	if (constructFineNodes(d_parentMortonArray, d_allMorton2Idx)) // 如果表面节点有父节点，则开始从父节点这一层自下向上构建
 	{
 		size_t nodeArraySize = d_parentMortonArray.size();
 
@@ -301,6 +311,7 @@ void SparseVoxelOctree::createOctree()
 		thrust::device_vector<int> d_nNodesArray; // 节点数量记录数组
 		thrust::device_vector<uint32_t> d_nodeArray; // 节点数组
 		thrust::device_vector<size_t> d_sumNodesArray; // inlusive scan
+		thrust::device_vector<size_t> d_morton2Idx; // 存储morton码到nodeArray下标的映射
 
 		// Estimate best block and grid size using CUDA Occupancy Calculator
 		int blockSize;   // The launch configurator returned block size 
@@ -324,11 +335,13 @@ void SparseVoxelOctree::createOctree()
 			size_t nNodes = thrust::reduce(d_nNodesArray.begin(), d_nNodesArray.end(), 0, thrust::plus<int>()) + 8; // 八叉树节点数量
 
 			// 设置节点数组
+			uint32_t maxMortonCode = *d_pactNodeArray.end();
+			d_morton2Idx.resize(maxMortonCode + 8 - (maxMortonCode % 8));
 			d_nodeArray.resize(nNodes);
 			d_sumNodesArray.resize(nNodes);
 			thrust::inclusive_scan(d_nNodesArray.begin(), d_nNodesArray.end(), d_sumNodesArray.begin());
 			size_t nNodes = *(d_sumNodesArray.end()) + 8; // 最底层的八叉树节点数量
-			createNode << <gridSize, blockSize >> > (nNodes, pactSize, d_sumNodesArray, d_pactNodeArray, d_nodeArray);
+			createNode << <gridSize, blockSize >> > (nNodes, pactSize, d_sumNodesArray, d_pactNodeArray, d_nodeArray, d_morton2Idx);
 
 			// 对表面节点父节点进行compact，去除末端不合法的莫顿码，&0x7fffffff 是为了得到最后一个合法莫顿码所在的位置（去除符号位）
 			nodeArraySize = *thrust::max_element(d_parentMortonArray.begin(), d_parentMortonArray.end());
@@ -336,6 +349,8 @@ void SparseVoxelOctree::createOctree()
 			//nParentNodes = nParentNodes + 8 - (nParentNodes % 8);
 			bool isValidMorton = nodeArraySize & MORTON_32_FLAG; // 以防有效莫顿码为0
 			nodeArraySize = (nodeArraySize & 0x7fffffff) + isValidMorton;
+
+			depth++;
 		}
 	}
 	else
