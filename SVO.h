@@ -1,20 +1,21 @@
 #pragma once
 #include "BaseModel.h"
 #include <vector>
+#include <limits>
 #include <Eigen\Dense>
-#define MORTON_32_FLAG 0x80000000
 
 using std::vector;
 
 typedef struct SparseVoxelOctreeNode
 {
+	uint32_t mortonCode = 0;
+
 	Eigen::Vector3f origin;
 	float width;
-	uint32_t mortonCode;
 
-	int parent = -1;
-	int childs[8] = { -1 };
-	int neighbors[27] = { -1 };
+	unsigned int parent = UINT_MAX;
+	unsigned int childs[8] = { UINT_MAX };
+	unsigned int neighbors[27] = { UINT_MAX };
 }SVONode;
 
 // 右移三位，并让最高标志位为 1 (同时使之前右移三位后的标志位为0)即可
