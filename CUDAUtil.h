@@ -122,6 +122,24 @@ float* meshToGPU_thrust(const std::vector<Eigen::Vector3f> mesh) {
     return (float*)thrust::raw_pointer_cast(&((*d_triangleThrustVec)[0]));
 }
 
+template<typename T>
+void resizeThrust(thrust::device_vector<T>& d_vec, const size_t& dataSize)
+{
+    d_vec.resize(dataSize); d_vec.shrink_to_fit();
+}
+
+template<typename T>
+void resizeThrust(thrust::device_vector<T>& d_vec, const size_t& dataSize, const T& init)
+{
+    d_vec.resize(dataSize, init); d_vec.shrink_to_fit();
+}
+
+template<typename T>
+void cleanupThrust(thrust::device_vector<T>& d_vec)
+{
+    d_vec.clear(); d_vec.shrink_to_fit();
+}
+
 void cleanup_thrust() {
     fprintf(stdout, "[Mesh] Freeing Thrust host and device vectors \n");
     if (d_triangleThrustVec) free(d_triangleThrustVec);

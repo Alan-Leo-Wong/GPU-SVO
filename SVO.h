@@ -9,6 +9,7 @@ using std::vector;
 typedef struct SparseVoxelOctreeNode
 {
 	uint32_t mortonCode = 0;
+	bool isLeaf = true;
 
 	Eigen::Vector3f origin;
 	float width;
@@ -32,32 +33,45 @@ __inline__ CUDA_CALLABLE_MEMBER bool isSameParent(const uint32_t morton_1, const
 struct SparseVoxelOctree : public BaseModel
 {
 private:
-	int depth;
+	int depth = 0;
 	Eigen::Vector3i surfaceVoxelGridSize;
 	vector<size_t> depthNumNodes; // 每一层的八叉树节点数
-	vector<vector<SVONode>> depthNodes;
+	vector<vector<SVONode>> SVONodes;
+	
 	// 临时
 	vector<vector<uint32_t>> tempNodeArray;
+
+	vector<Eigen::Vector3f> nodeVertexArray;
+	vector<Eigen::Vector3f> nodeEdgeArray;
+	vector<Eigen::Vector3f> nodeFaceArray;
 
 public:
 	SparseVoxelOctree() : depth(0) {}
 	SparseVoxelOctree(const int& _depth,
 		const Eigen::Vector3i& _gridSize) :depth(_depth), surfaceVoxelGridSize(_gridSize)
 	{
-		depthNodes.resize(_depth);
+		//depthNodes.resize(_depth);
 	}
 	SparseVoxelOctree(const int& _depth,
 		const int& _grid_x,
 		const int& _grid_y,
 		const int& _grid_z) :depth(_depth), surfaceVoxelGridSize(Eigen::Vector3i(_grid_x, _grid_y, _grid_z))
 	{
-		depthNodes.resize(_depth);
+		//depthNodes.resize(_depth);
 	}
 
 public:
 
-	bool constructFineNodes(thrust::device_vector<uint32_t>& d_surfaceNodeParentArray,
-		thrust::device_vector<thrust::device_vector<size_t>>& d_allMorton2Idx); // construct nodes in `depth - 1`
+	bool meshVoxelize(const Eigen::Vector3i& d_surfaceVoxelGridSize,
+		const Eigen::Vector3f& d_unitVoxelSize,
+		const Eigen::Vector3f& d_gridOrigin); // construct nodes in `depth - 1`
 
 	void createOctree();
+
+private:
+	void constructNodeNeighbors();
+	void constructNodeVertexArray();
+	void constructNodeEdgeArray();
+
+	void constructNodeAtrributes();
 };

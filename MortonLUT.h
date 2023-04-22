@@ -424,6 +424,7 @@ __constant__ short int neighbor_LUTparent[8][27] = {
 	 13, 13, 14, 13, 13, 14, 16, 16, 17,
 	 22, 22, 23, 22, 22, 23, 25, 25, 26}
 };
+
 __constant__ short int neighbor_LUTchild[8][27] = {
 	{7, 6, 7, 5, 4, 5, 7, 6, 7,
 	 3, 2, 3, 1, 0, 1, 3, 2, 3,
