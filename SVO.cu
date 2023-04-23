@@ -606,7 +606,7 @@ __global__ void determineNodeEdge(const size_t nNodes,
 
 template <typename T>
 struct uniqueVert : public thrust::binary_function<T, T, T> {
-	__host__ __device__ T operator()(const T& a, const T& b) {
+	__host__ __device__ bool operator()(const T& a, const T& b) {
 		return a.first == b.first;
 	}
 };
