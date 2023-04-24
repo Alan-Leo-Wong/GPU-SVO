@@ -5,6 +5,7 @@
 #define E_MORTON_32_FLAG 0x80000000
 #define D_MORTON_32_FLAG 0x7FFFFFFF
 #define EIGHT_BIT_MASK 0x000000FF
+#define NINE_BIT_MASK 0x000001FF
 #define LOWER_3BIT_MASK 0x00000007
 
 // LUT tables to copy to GPU memory for quick morton decode / encode
@@ -231,7 +232,7 @@ __constant__ uint32_t d_morton256_z[256] =
 };
 
 // LUT for Morton3D decode X
-__constant__ uint_fast8_t Morton3D_decode_x_512[512] = {
+static constexpr uint_fast8_t h_Morton3D_decode_x_512[512] = {
 	0, 1, 0, 1, 0, 1, 0, 1, 2, 3, 2, 3, 2, 3, 2, 3,
 	0, 1, 0, 1, 0, 1, 0, 1, 2, 3, 2, 3, 2, 3, 2, 3,
 	0, 1, 0, 1, 0, 1, 0, 1, 2, 3, 2, 3, 2, 3, 2, 3,
@@ -267,7 +268,7 @@ __constant__ uint_fast8_t Morton3D_decode_x_512[512] = {
 };
 
 // LUT for Morton3D decode Y
-__constant__ uint_fast8_t Morton3D_decode_y_512[512] = {
+static constexpr uint_fast8_t h_Morton3D_decode_y_512[512] = {
 	0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1,
 	2, 2, 3, 3, 2, 2, 3, 3, 2, 2, 3, 3, 2, 2, 3, 3,
 	0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1,
@@ -303,7 +304,115 @@ __constant__ uint_fast8_t Morton3D_decode_y_512[512] = {
 };
 
 // LUT for Morton3D decode Z
-__constant__ uint_fast8_t Morton3D_decode_z_512[512] = {
+static constexpr uint_fast8_t h_Morton3D_decode_z_512[512] = {
+	0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1,
+	0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1,
+	2, 2, 2, 2, 3, 3, 3, 3, 2, 2, 2, 2, 3, 3, 3, 3,
+	2, 2, 2, 2, 3, 3, 3, 3, 2, 2, 2, 2, 3, 3, 3, 3,
+	0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1,
+	0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1,
+	2, 2, 2, 2, 3, 3, 3, 3, 2, 2, 2, 2, 3, 3, 3, 3,
+	2, 2, 2, 2, 3, 3, 3, 3, 2, 2, 2, 2, 3, 3, 3, 3,
+	0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1,
+	0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1,
+	2, 2, 2, 2, 3, 3, 3, 3, 2, 2, 2, 2, 3, 3, 3, 3,
+	2, 2, 2, 2, 3, 3, 3, 3, 2, 2, 2, 2, 3, 3, 3, 3,
+	0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1,
+	0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1,
+	2, 2, 2, 2, 3, 3, 3, 3, 2, 2, 2, 2, 3, 3, 3, 3,
+	2, 2, 2, 2, 3, 3, 3, 3, 2, 2, 2, 2, 3, 3, 3, 3,
+	4, 4, 4, 4, 5, 5, 5, 5, 4, 4, 4, 4, 5, 5, 5, 5,
+	4, 4, 4, 4, 5, 5, 5, 5, 4, 4, 4, 4, 5, 5, 5, 5,
+	6, 6, 6, 6, 7, 7, 7, 7, 6, 6, 6, 6, 7, 7, 7, 7,
+	6, 6, 6, 6, 7, 7, 7, 7, 6, 6, 6, 6, 7, 7, 7, 7,
+	4, 4, 4, 4, 5, 5, 5, 5, 4, 4, 4, 4, 5, 5, 5, 5,
+	4, 4, 4, 4, 5, 5, 5, 5, 4, 4, 4, 4, 5, 5, 5, 5,
+	6, 6, 6, 6, 7, 7, 7, 7, 6, 6, 6, 6, 7, 7, 7, 7,
+	6, 6, 6, 6, 7, 7, 7, 7, 6, 6, 6, 6, 7, 7, 7, 7,
+	4, 4, 4, 4, 5, 5, 5, 5, 4, 4, 4, 4, 5, 5, 5, 5,
+	4, 4, 4, 4, 5, 5, 5, 5, 4, 4, 4, 4, 5, 5, 5, 5,
+	6, 6, 6, 6, 7, 7, 7, 7, 6, 6, 6, 6, 7, 7, 7, 7,
+	6, 6, 6, 6, 7, 7, 7, 7, 6, 6, 6, 6, 7, 7, 7, 7,
+	4, 4, 4, 4, 5, 5, 5, 5, 4, 4, 4, 4, 5, 5, 5, 5,
+	4, 4, 4, 4, 5, 5, 5, 5, 4, 4, 4, 4, 5, 5, 5, 5,
+	6, 6, 6, 6, 7, 7, 7, 7, 6, 6, 6, 6, 7, 7, 7, 7,
+	6, 6, 6, 6, 7, 7, 7, 7, 6, 6, 6, 6, 7, 7, 7, 7
+};
+
+// LUT for Morton3D decode X
+__constant__ uint_fast8_t d_Morton3D_decode_x_512[512] = {
+	0, 1, 0, 1, 0, 1, 0, 1, 2, 3, 2, 3, 2, 3, 2, 3,
+	0, 1, 0, 1, 0, 1, 0, 1, 2, 3, 2, 3, 2, 3, 2, 3,
+	0, 1, 0, 1, 0, 1, 0, 1, 2, 3, 2, 3, 2, 3, 2, 3,
+	0, 1, 0, 1, 0, 1, 0, 1, 2, 3, 2, 3, 2, 3, 2, 3,
+	4, 5, 4, 5, 4, 5, 4, 5, 6, 7, 6, 7, 6, 7, 6, 7,
+	4, 5, 4, 5, 4, 5, 4, 5, 6, 7, 6, 7, 6, 7, 6, 7,
+	4, 5, 4, 5, 4, 5, 4, 5, 6, 7, 6, 7, 6, 7, 6, 7,
+	4, 5, 4, 5, 4, 5, 4, 5, 6, 7, 6, 7, 6, 7, 6, 7,
+	0, 1, 0, 1, 0, 1, 0, 1, 2, 3, 2, 3, 2, 3, 2, 3,
+	0, 1, 0, 1, 0, 1, 0, 1, 2, 3, 2, 3, 2, 3, 2, 3,
+	0, 1, 0, 1, 0, 1, 0, 1, 2, 3, 2, 3, 2, 3, 2, 3,
+	0, 1, 0, 1, 0, 1, 0, 1, 2, 3, 2, 3, 2, 3, 2, 3,
+	4, 5, 4, 5, 4, 5, 4, 5, 6, 7, 6, 7, 6, 7, 6, 7,
+	4, 5, 4, 5, 4, 5, 4, 5, 6, 7, 6, 7, 6, 7, 6, 7,
+	4, 5, 4, 5, 4, 5, 4, 5, 6, 7, 6, 7, 6, 7, 6, 7,
+	4, 5, 4, 5, 4, 5, 4, 5, 6, 7, 6, 7, 6, 7, 6, 7,
+	0, 1, 0, 1, 0, 1, 0, 1, 2, 3, 2, 3, 2, 3, 2, 3,
+	0, 1, 0, 1, 0, 1, 0, 1, 2, 3, 2, 3, 2, 3, 2, 3,
+	0, 1, 0, 1, 0, 1, 0, 1, 2, 3, 2, 3, 2, 3, 2, 3,
+	0, 1, 0, 1, 0, 1, 0, 1, 2, 3, 2, 3, 2, 3, 2, 3,
+	4, 5, 4, 5, 4, 5, 4, 5, 6, 7, 6, 7, 6, 7, 6, 7,
+	4, 5, 4, 5, 4, 5, 4, 5, 6, 7, 6, 7, 6, 7, 6, 7,
+	4, 5, 4, 5, 4, 5, 4, 5, 6, 7, 6, 7, 6, 7, 6, 7,
+	4, 5, 4, 5, 4, 5, 4, 5, 6, 7, 6, 7, 6, 7, 6, 7,
+	0, 1, 0, 1, 0, 1, 0, 1, 2, 3, 2, 3, 2, 3, 2, 3,
+	0, 1, 0, 1, 0, 1, 0, 1, 2, 3, 2, 3, 2, 3, 2, 3,
+	0, 1, 0, 1, 0, 1, 0, 1, 2, 3, 2, 3, 2, 3, 2, 3,
+	0, 1, 0, 1, 0, 1, 0, 1, 2, 3, 2, 3, 2, 3, 2, 3,
+	4, 5, 4, 5, 4, 5, 4, 5, 6, 7, 6, 7, 6, 7, 6, 7,
+	4, 5, 4, 5, 4, 5, 4, 5, 6, 7, 6, 7, 6, 7, 6, 7,
+	4, 5, 4, 5, 4, 5, 4, 5, 6, 7, 6, 7, 6, 7, 6, 7,
+	4, 5, 4, 5, 4, 5, 4, 5, 6, 7, 6, 7, 6, 7, 6, 7
+};
+
+// LUT for Morton3D decode Y
+__constant__ uint_fast8_t d_Morton3D_decode_y_512[512] = {
+	0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1,
+	2, 2, 3, 3, 2, 2, 3, 3, 2, 2, 3, 3, 2, 2, 3, 3,
+	0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1,
+	2, 2, 3, 3, 2, 2, 3, 3, 2, 2, 3, 3, 2, 2, 3, 3,
+	0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1,
+	2, 2, 3, 3, 2, 2, 3, 3, 2, 2, 3, 3, 2, 2, 3, 3,
+	0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1,
+	2, 2, 3, 3, 2, 2, 3, 3, 2, 2, 3, 3, 2, 2, 3, 3,
+	4, 4, 5, 5, 4, 4, 5, 5, 4, 4, 5, 5, 4, 4, 5, 5,
+	6, 6, 7, 7, 6, 6, 7, 7, 6, 6, 7, 7, 6, 6, 7, 7,
+	4, 4, 5, 5, 4, 4, 5, 5, 4, 4, 5, 5, 4, 4, 5, 5,
+	6, 6, 7, 7, 6, 6, 7, 7, 6, 6, 7, 7, 6, 6, 7, 7,
+	4, 4, 5, 5, 4, 4, 5, 5, 4, 4, 5, 5, 4, 4, 5, 5,
+	6, 6, 7, 7, 6, 6, 7, 7, 6, 6, 7, 7, 6, 6, 7, 7,
+	4, 4, 5, 5, 4, 4, 5, 5, 4, 4, 5, 5, 4, 4, 5, 5,
+	6, 6, 7, 7, 6, 6, 7, 7, 6, 6, 7, 7, 6, 6, 7, 7,
+	0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1,
+	2, 2, 3, 3, 2, 2, 3, 3, 2, 2, 3, 3, 2, 2, 3, 3,
+	0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1,
+	2, 2, 3, 3, 2, 2, 3, 3, 2, 2, 3, 3, 2, 2, 3, 3,
+	0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1,
+	2, 2, 3, 3, 2, 2, 3, 3, 2, 2, 3, 3, 2, 2, 3, 3,
+	0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1,
+	2, 2, 3, 3, 2, 2, 3, 3, 2, 2, 3, 3, 2, 2, 3, 3,
+	4, 4, 5, 5, 4, 4, 5, 5, 4, 4, 5, 5, 4, 4, 5, 5,
+	6, 6, 7, 7, 6, 6, 7, 7, 6, 6, 7, 7, 6, 6, 7, 7,
+	4, 4, 5, 5, 4, 4, 5, 5, 4, 4, 5, 5, 4, 4, 5, 5,
+	6, 6, 7, 7, 6, 6, 7, 7, 6, 6, 7, 7, 6, 6, 7, 7,
+	4, 4, 5, 5, 4, 4, 5, 5, 4, 4, 5, 5, 4, 4, 5, 5,
+	6, 6, 7, 7, 6, 6, 7, 7, 6, 6, 7, 7, 6, 6, 7, 7,
+	4, 4, 5, 5, 4, 4, 5, 5, 4, 4, 5, 5, 4, 4, 5, 5,
+	6, 6, 7, 7, 6, 6, 7, 7, 6, 6, 7, 7, 6, 6, 7, 7
+};
+
+// LUT for Morton3D decode Z
+__constant__ uint_fast8_t d_Morton3D_decode_z_512[512] = {
 	0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1,
 	0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1,
 	2, 2, 2, 2, 3, 3, 3, 3, 2, 2, 2, 2, 3, 3, 3, 3,
@@ -339,12 +448,13 @@ __constant__ uint_fast8_t Morton3D_decode_z_512[512] = {
 };
 
 // Encode morton code using LUT table
-__device__ inline uint64_t mortonEncode_LUT(uint32_t x, uint32_t y, uint32_t z) {
+__host__ __device__ inline uint64_t mortonEncode_LUT(uint32_t x, uint32_t y, uint32_t z) {
 	/*uint64_t answer = 0;
 	answer = d_morton256_z[(z >> 16) & 0xFF] |
 		d_morton256_y[(y >> 16) & 0xFF] |
 		d_morton256_x[(x >> 16) & 0xFF];*/
 	uint64_t answer = 0;
+#if defined(__CUDA_ARCH__)
 	answer = answer << 48 |
 		d_morton256_z[(z >> 8) & 0xFF] |
 		d_morton256_y[(y >> 8) & 0xFF] |
@@ -353,41 +463,67 @@ __device__ inline uint64_t mortonEncode_LUT(uint32_t x, uint32_t y, uint32_t z) 
 		d_morton256_z[(z) & 0xFF] |
 		d_morton256_y[(y) & 0xFF] |
 		d_morton256_x[(x) & 0xFF];
+#else
+	answer = answer << 48 |
+		h_morton256_z[(z >> 8) & 0xFF] |
+		h_morton256_y[(y >> 8) & 0xFF] |
+		h_morton256_x[(x >> 8) & 0xFF];
+	answer = answer << 24 |
+		h_morton256_z[(z) & 0xFF] |
+		h_morton256_y[(y) & 0xFF] |
+		h_morton256_x[(x) & 0xFF];
+#endif
+	
 	return answer;
 }
 
 // Encode morton code using LUT table
-__device__ inline uint32_t mortonEncode_LUT(uint16_t x, uint16_t y, uint16_t z) {
+__host__ __device__ inline uint32_t mortonEncode_LUT(uint16_t x, uint16_t y, uint16_t z) {
 	uint32_t answer = 0;
 	for (unsigned int i = sizeof(uint16_t); i > 0; --i) {
 		unsigned int shift = (i - 1) * 8;
+#if defined(__CUDA_ARCH__)
 		answer =
 			answer << 24 |
 			(d_morton256_z[(z >> shift) & EIGHT_BIT_MASK] |
 				d_morton256_y[(y >> shift) & EIGHT_BIT_MASK] |
 				d_morton256_x[(x >> shift) & EIGHT_BIT_MASK]);
+#else
+		answer =
+			answer << 24 |
+			(h_morton256_z[(z >> shift) & EIGHT_BIT_MASK] |
+				h_morton256_y[(y >> shift) & EIGHT_BIT_MASK] |
+				h_morton256_x[(x >> shift) & EIGHT_BIT_MASK]);
+#endif
 	}
 	return answer;
 }
 
 template<typename morton, typename coord>
-__device__ inline coord morton3D_DecodeCoord_LUT256(const morton m, const uint_fast8_t* LUT, const unsigned int startshift) {
+__host__ __device__ inline coord morton3D_DecodeCoord_LUT256(const morton m, const uint_fast8_t* LUT, const unsigned int startshift) {
 	morton a = 0;
 	unsigned int loops = (sizeof(morton) <= 4) ? 4 : 7;
-	for (unsigned int i = 0; i < loops; ++i) {
-		a |= (morton)(LUT[(m >> ((i * 9) + startshift)) & NINEBITMASK] << morton(3 * i));
+	for (unsigned int i = 0; i < loops; ++i) 
+	{
+		a |= (morton)(LUT[(m >> ((i * 9) + startshift)) & NINE_BIT_MASK] << morton(3 * i));
 	}
 	return (coord)a;
 }
 
 template<typename morton, typename coord>
-__device__ inline void m3D_d_sLUT(const morton m, coord& x, coord& y, coord& z) {
-	x = morton3D_DecodeCoord_LUT256<morton, coord>(m, Morton3D_decode_x_512, 0);
-	y = morton3D_DecodeCoord_LUT256<morton, coord>(m, Morton3D_decode_y_512, 0);
-	z = morton3D_DecodeCoord_LUT256<morton, coord>(m, Morton3D_decode_z_512, 0);
+__host__ __device__ inline void m3D_d_sLUT(const morton m, coord& x, coord& y, coord& z) {
+#if defined(__CUDA_ARCH__)
+	x = morton3D_DecodeCoord_LUT256<morton, coord>(m, d_Morton3D_decode_x_512, 0);
+	y = morton3D_DecodeCoord_LUT256<morton, coord>(m, d_Morton3D_decode_y_512, 0);
+	z = morton3D_DecodeCoord_LUT256<morton, coord>(m, d_Morton3D_decode_z_512, 0);
+#else
+	x = morton3D_DecodeCoord_LUT256<morton, coord>(m, h_Morton3D_decode_x_512, 0);
+	y = morton3D_DecodeCoord_LUT256<morton, coord>(m, h_Morton3D_decode_y_512, 0);
+	z = morton3D_DecodeCoord_LUT256<morton, coord>(m, h_Morton3D_decode_z_512, 0);
+#endif
 }
 
-__device__ inline void morton3D_32_decode(const uint_fast32_t morton, uint16_t& x, uint16_t& y, uint16_t& z) {
+__host__ __device__ inline void morton3D_32_decode(const uint_fast32_t morton, uint16_t& x, uint16_t& y, uint16_t& z) {
 	m3D_d_sLUT<uint_fast32_t, uint16_t>(morton, x, y, z);
 }
 
@@ -458,19 +594,3 @@ __constant__ short int neighbor_LUTchild[8][27] = {
 	 4, 5, 4, 6, 7, 6, 4, 5, 4,
 	 0, 1, 0, 2, 3, 2, 0, 1, 0}
 };
-
-// Check if a voxel in the voxel table is set
-inline __host__ __device__ bool checkVoxel(size_t x, size_t y, size_t z, const Eigen::Vector3i gridsize, const unsigned int* vtable) {
-	size_t location = x + (y * gridsize.x()) + (z * gridsize.x() * gridsize.y());
-	size_t int_location = location / size_t(32);
-	/*size_t max_index = (gridsize*gridsize*gridsize) / __int64(32);
-	if (int_location >= max_index){
-	fprintf(stdout, "Requested index too big: %llu \n", int_location);
-	fprintf(stdout, "X %llu Y %llu Z %llu \n", int_location);
-	}*/
-	unsigned int bit_pos = size_t(31) - (location % size_t(32)); // we count bit positions RtL, but array indices LtR
-	if ((vtable[int_location]) & (1 << bit_pos)) {
-		return true;
-	}
-	return false;
-}

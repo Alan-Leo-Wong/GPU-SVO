@@ -83,11 +83,12 @@
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <Include>
       </Include>
+      <GenerateRelocatableDeviceCode>true</GenerateRelocatableDeviceCode>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="BaseModel.cpp" />
     <ClCompile Include="main.cpp" />
-    <CudaCompile Include="SVO.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BaseModel.h" />
@@ -95,6 +96,9 @@
     <ClInclude Include="IO.h" />
     <ClInclude Include="MortonLUT.h" />
     <ClInclude Include="SVO.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="SVO.cu" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

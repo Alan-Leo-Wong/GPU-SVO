@@ -19,59 +19,53 @@ typedef struct SparseVoxelOctreeNode
 	unsigned int neighbors[27] = { UINT_MAX };
 }SVONode;
 
-// 右移三位，并让最高标志位为 1 (同时使之前右移三位后的标志位为0)即可
-__inline__ CUDA_CALLABLE_MEMBER uint32_t getParentMorton(const uint32_t morton)
-{
-	return ((morton >> 3) & 0x8fffffff);
-}
-
-__inline__ CUDA_CALLABLE_MEMBER bool isSameParent(const uint32_t morton_1, const uint32_t morton_2)
-{
-	return getParentMorton(morton_1) == getParentMorton(morton_2);
-}
-
 struct SparseVoxelOctree : public BaseModel
 {
 private:
-	int depth = 0;
+	int treeDepth = 0;
 	size_t numTreeNodes;
 	Eigen::Vector3i surfaceVoxelGridSize;
 	vector<size_t> depthNumNodes; // 每一层的八叉树节点数
 	vector<vector<SVONode>> SVONodes;
 	
 	// 临时
-	vector<vector<uint32_t>> tempNodeArray;
+	//vector<vector<uint32_t>> tempNodeArray;
+	vector<SVONode> svoNodeArray;
 
 	vector<Eigen::Vector3f> nodeVertexArray;
 	vector<Eigen::Vector3f> nodeEdgeArray;
 	vector<Eigen::Vector3f> nodeFaceArray;
 
 public:
-	SparseVoxelOctree() : depth(0) {}
-	SparseVoxelOctree(const int& _depth,
-		const Eigen::Vector3i& _gridSize) :depth(_depth), surfaceVoxelGridSize(_gridSize)
+	SparseVoxelOctree() : treeDepth(0) {}
+	SparseVoxelOctree(const std::string& filename,
+		const Eigen::Vector3i& _gridSize) :BaseModel(filename), surfaceVoxelGridSize(_gridSize)
 	{
 		//depthNodes.resize(_depth);
 	}
-	SparseVoxelOctree(const int& _depth,
+	SparseVoxelOctree(const std::string& filename,
 		const int& _grid_x,
 		const int& _grid_y,
-		const int& _grid_z) :depth(_depth), surfaceVoxelGridSize(Eigen::Vector3i(_grid_x, _grid_y, _grid_z))
+		const int& _grid_z) :BaseModel(filename), surfaceVoxelGridSize(Eigen::Vector3i(_grid_x, _grid_y, _grid_z))
 	{
 		//depthNodes.resize(_depth);
 	}
 
 public:
-
-	bool meshVoxelize(const Eigen::Vector3i& d_surfaceVoxelGridSize,
-		const Eigen::Vector3f& d_unitVoxelSize,
-		const Eigen::Vector3f& d_gridOrigin); // construct nodes in `depth - 1`
-
 	void createOctree();
 
-private:
-	void constructNodeNeighbors();
-	void constructNodeVertexAndEdge();
+	void writeTree(const std::string base_filename);
 
-	void constructNodeAtrributes();
+private:
+	void meshVoxelize(const Eigen::Vector3i& d_surfaceVoxelGridSize,
+		const Eigen::Vector3f& d_unitVoxelSize,
+		const Eigen::Vector3f& d_gridOrigin,
+		thrust::device_vector<uint32_t>& d_CNodeMortonArray); // construct nodes in `depth - 1`
+
+	void constructNodeNeighbors(const thrust::device_vector<size_t>& d_esumTreeNodesArray,
+		thrust::device_vector<SVONode>& d_SVONodeArray);
+	void constructNodeVertexAndEdge(thrust::device_vector<SVONode>& d_SVONodeArray);
+
+	void constructNodeAtrributes(const thrust::device_vector<size_t>& d_esumTreeNodesArray, 
+		thrust::device_vector<SVONode>& d_SVONodeArray);
 };

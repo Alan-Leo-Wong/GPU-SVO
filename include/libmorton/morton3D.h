@@ -10,7 +10,7 @@
 #include "morton_common.h"
 
 #define EIGHT_BIT_MASK (morton) 0x000000FF
-#define NINEBITMASK (morton) 0x000001FF
+#define NINE_BIT_MASK (morton) 0x000001FF
 
 namespace libmorton {
 	// AVAILABLE METHODS FOR ENCODING
@@ -164,7 +164,7 @@ namespace libmorton {
 		morton a = 0;
 		unsigned int loops = (sizeof(morton) <= 4) ? 4 : 7;
 		for (unsigned int i = 0; i < loops; ++i) {
-			a |= (morton)(LUT[(m >> ((i * 9) + startshift)) & NINEBITMASK] << morton(3 * i));
+			a |= (morton)(LUT[(m >> ((i * 9) + startshift)) & NINE_BIT_MASK] << morton(3 * i));
 		}
 		return static_cast<coord>(a);
 	}
@@ -194,7 +194,7 @@ namespace libmorton {
 		unsigned int i = 0;
 		unsigned int shiftback = 0;
 		while (firstbit_location > i) {
-			morton m_shifted = (m >> i) & NINEBITMASK;
+			morton m_shifted = (m >> i) & NINE_BIT_MASK;
 			x |= (coord)Morton3D_decode_x_512[m_shifted] << shiftback;
 			y |= (coord)Morton3D_decode_y_512[m_shifted] << shiftback;
 			z |= (coord)Morton3D_decode_z_512[m_shifted] << shiftback;
@@ -213,9 +213,9 @@ namespace libmorton {
 		unsigned int i = 0;
 		unsigned int shiftback = 0;
 		while (i < firstbit_location) {
-			x = x | (coord)Morton3D_decode_x_512[(m >> i) & NINEBITMASK] << shiftback;
-			y = y | (coord)Morton3D_decode_x_512[(m >> (i + 1)) & NINEBITMASK] << shiftback;
-			z = z | (coord)Morton3D_decode_x_512[(m >> (i + 2)) & NINEBITMASK] << shiftback;
+			x = x | (coord)Morton3D_decode_x_512[(m >> i) & NINE_BIT_MASK] << shiftback;
+			y = y | (coord)Morton3D_decode_x_512[(m >> (i + 1)) & NINE_BIT_MASK] << shiftback;
+			z = z | (coord)Morton3D_decode_x_512[(m >> (i + 2)) & NINE_BIT_MASK] << shiftback;
 			i += 9;
 			shiftback += 3;
 		}
