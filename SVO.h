@@ -19,6 +19,8 @@ typedef struct SparseVoxelOctreeNode
 	unsigned int neighbors[27] = { UINT_MAX };
 }SVONode;
 
+using thrust_edge = thrust::pair<Eigen::Vector3f, Eigen::Vector3f>;
+
 struct SparseVoxelOctree : public BaseModel
 {
 private:
@@ -32,9 +34,8 @@ private:
 	//vector<vector<uint32_t>> tempNodeArray;
 	vector<SVONode> svoNodeArray;
 
-	vector<Eigen::Vector3f> nodeVertexArray;
-	vector<Eigen::Vector3f> nodeEdgeArray;
-	vector<Eigen::Vector3f> nodeFaceArray;
+	vector<thrust::pair<Eigen::Vector3f, uint32_t>> nodeVertexArray;
+	vector<thrust::pair<thrust_edge, uint32_t>> nodeEdgeArray;
 
 public:
 	SparseVoxelOctree() : treeDepth(0) {}
@@ -57,9 +58,9 @@ public:
 	void writeTree(const std::string base_filename);
 
 private:
-	void meshVoxelize(const Eigen::Vector3i& d_surfaceVoxelGridSize,
-		const Eigen::Vector3f& d_unitVoxelSize,
-		const Eigen::Vector3f& d_gridOrigin,
+	void meshVoxelize(const Eigen::Vector3i* d_surfaceVoxelGridSize,
+		const Eigen::Vector3f* d_unitVoxelSize,
+		const Eigen::Vector3f* d_gridOrigin,
 		thrust::device_vector<uint32_t>& d_CNodeMortonArray); // construct nodes in `depth - 1`
 
 	void constructNodeNeighbors(const thrust::device_vector<size_t>& d_esumTreeNodesArray,

@@ -38,6 +38,7 @@ AABox<T> createMeshBBCube(AABox<T> box) {
 	Eigen::Vector3f epsilon = (answer.max - answer.min) / 10001.0f;
 	answer.min -= epsilon;
 	answer.max += epsilon;
+	answer.width = answer.max - answer.min;
 	return answer;
 }
 

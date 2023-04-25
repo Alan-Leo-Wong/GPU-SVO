@@ -2,9 +2,9 @@
 
 int main(int argc, char** argv)
 {
-    SparseVoxelOctree svo("bunny.off", 32, 32, 32);
-    //svo.createOctree();
-    //svo.writeTree("bunny");
+    SparseVoxelOctree svo("bunny.obj", 8, 8, 8);
+    svo.createOctree();
+    svo.writeTree("bunny");
     
     return 0;
 }
