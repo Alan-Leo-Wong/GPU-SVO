@@ -715,8 +715,9 @@ void SparseVoxelOctree::constructNodeVertexAndEdge(thrust::device_vector<SVONode
 	thrust::device_vector < thrust::pair<thrust_edge, uint32_t>> d_nodeEdgeArray(numTreeNodes * 12);
 	getOccupancyMaxPotentialBlockSize(numTreeNodes, minGridSize, blockSize, gridSize, determineNodeEdge, 0, 0);
 	determineNodeEdge << <gridSize, blockSize, 0, streams[1] >> > (numTreeNodes, d_SVONodeArray.data().get(), d_nodeEdgeArray.data().get());
-	newEnd = thrust::unique(d_nodeEdgeArray.begin(), d_nodeEdgeArray.end(), uniqueVert<thrust::pair<Eigen::Vector3f, uint32_t>>());
+	newEnd = thrust::unique(d_nodeEdgeArray.begin(), d_nodeEdgeArray.end(), uniqueEdge<thrust::pair<thrust_edge, uint32_t>>()); // error
 	const size_t numEdges = newEnd - d_nodeEdgeArray.begin();
+	nodeEdgeArray.resize(numEdges);
 	CUDA_CHECK(cudaMemcpy(nodeEdgeArray.data(), d_nodeEdgeArray.data().get(),
 		sizeof(thrust::pair<thrust_edge, uint32_t>) * numEdges, cudaMemcpyDeviceToHost));
 	//for (int i = 0; i < depth; ++i)

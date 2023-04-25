@@ -36,6 +36,8 @@ private:
 
 	vector<thrust::pair<Eigen::Vector3f, uint32_t>> nodeVertexArray;
 	vector<thrust::pair<thrust_edge, uint32_t>> nodeEdgeArray;
+	/*vector<Eigen::Vector3f> nodeVertexArray;
+	vector<Eigen::Vector3f> nodeEdgeArray;*/
 
 public:
 	SparseVoxelOctree() : treeDepth(0) {}
