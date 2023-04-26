@@ -14,9 +14,9 @@ typedef struct SparseVoxelOctreeNode
 	Eigen::Vector3f origin;
 	float width;
 
-	unsigned int parent = UINT_MAX;
-	unsigned int childs[8] = { UINT_MAX };
-	unsigned int neighbors[27] = { UINT_MAX };
+	unsigned int parent{ UINT_MAX };
+	unsigned int childs[8]{ UINT_MAX };
+	unsigned int neighbors[27]{ UINT_MAX };
 }SVONode;
 
 using thrust_edge = thrust::pair<Eigen::Vector3f, Eigen::Vector3f>;
@@ -29,10 +29,11 @@ private:
 	Eigen::Vector3i surfaceVoxelGridSize;
 	vector<size_t> depthNumNodes; // 每一层的八叉树节点数
 	vector<vector<SVONode>> SVONodes;
-	
+
 	// 临时
 	//vector<vector<uint32_t>> tempNodeArray;
 	vector<SVONode> svoNodeArray;
+
 
 	vector<thrust::pair<Eigen::Vector3f, uint32_t>> nodeVertexArray;
 	vector<thrust::pair<thrust_edge, uint32_t>> nodeEdgeArray;
@@ -59,6 +60,8 @@ public:
 
 	void writeTree(const std::string base_filename);
 
+	void writeVoxel(const vector<uint32_t>& voxelArray, const std::string& base_filename, const float& width);
+
 private:
 	void meshVoxelize(const Eigen::Vector3i* d_surfaceVoxelGridSize,
 		const Eigen::Vector3f* d_unitVoxelSize,
@@ -69,6 +72,6 @@ private:
 		thrust::device_vector<SVONode>& d_SVONodeArray);
 	void constructNodeVertexAndEdge(thrust::device_vector<SVONode>& d_SVONodeArray);
 
-	void constructNodeAtrributes(const thrust::device_vector<size_t>& d_esumTreeNodesArray, 
+	void constructNodeAtrributes(const thrust::device_vector<size_t>& d_esumTreeNodesArray,
 		thrust::device_vector<SVONode>& d_SVONodeArray);
 };
