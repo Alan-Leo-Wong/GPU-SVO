@@ -46,17 +46,26 @@ inline void __getLastCudaError(const char* errorMessage, const char* file, const
 	}
 }
 
-template<class Real>
+template<class T>
 static inline __host__ void getOccupancyMaxPotentialBlockSize(const uint32_t& dataSize,
 	int& minGridSize,
 	int& blockSize,
 	int& gridSize,
-	Real       func,
+	T      func,
 	size_t dynamicSMemSize = 0,
 	int    blockSizeLimit = 0)
 {
 	cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, func, dynamicSMemSize, blockSizeLimit);
 	gridSize = (dataSize + blockSize - 1) / blockSize;
+}
+
+template<class T>
+static inline __host__ void getOccupancyAvailableDynamicSMemPerBlock(const int& numBlocks,
+	const int& blockSize,
+	size_t& dynamicSmemSize,
+	T      func)
+{
+	cudaOccupancyAvailableDynamicSMemPerBlock(&dynamicSmemSize, func, numBlocks, blockSize);
 }
 
 inline CUDA_CALLABLE_MEMBER float fminf(float a, float b)

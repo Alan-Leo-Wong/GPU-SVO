@@ -6,7 +6,31 @@
 
 using std::vector;
 
-typedef struct SparseVoxelOctreeNode
+#if defined(__clang__) || defined(__GNUC__)
+
+#define _FORCE_INLINE_ __attribute__((always_inline))
+
+#elif defined(_MSC_VER)
+
+#define _FORCE_INLINE_ __forceinline
+
+#endif
+
+namespace detail {
+	template <class T, T... inds, class F>
+	constexpr __host__ __device__ _FORCE_INLINE_ void
+		loop(std::integer_sequence<T, inds...>, F&& f) {
+		(f(std::integral_constant<T, inds>{}), ...);
+	}
+
+	template <class T, T count, class F>
+	constexpr __host__ __device__ _FORCE_INLINE_ void Loop(F&& f) {
+		loop(std::make_integer_sequence<T, count>{}, std::forward<F>(f));
+	}
+} // namespace detail
+
+
+struct SVONode
 {
 	uint32_t mortonCode = 0;
 	bool isLeaf = true;
@@ -17,7 +41,13 @@ typedef struct SparseVoxelOctreeNode
 	unsigned int parent{ UINT_MAX };
 	unsigned int childs[8]{ UINT_MAX };
 	unsigned int neighbors[27]{ UINT_MAX };
-}SVONode;
+
+	SVONode() 
+	{
+		detail::Loop<unsigned int, 8>([&](auto i) {childs[i] = UINT_MAX; });
+		detail::Loop<unsigned int, 27>([&](auto i) {neighbors[i] = UINT_MAX; });
+	}
+};
 
 using thrust_edge = thrust::pair<Eigen::Vector3f, Eigen::Vector3f>;
 

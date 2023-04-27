@@ -23,7 +23,7 @@ int gridSize;    // The actual grid size needed, based on input size
 // 右移三位，并让最高标志位为 1 (同时使之前右移三位后的标志位为0)即可
 CUDA_CALLABLE_MEMBER uint32_t getParentMorton(const uint32_t morton)
 {
-	return ((morton >> 3) & 0x8fffffff);
+	return (((morton >> 3) & 0xfffffff));
 }
 
 CUDA_CALLABLE_MEMBER bool isSameParent(const uint32_t morton_1, const uint32_t morton_2)
@@ -219,7 +219,7 @@ __global__ void cpNumNodes(const size_t n,
 		else
 		{
 			const uint32_t parentMorton = getParentMorton(d_pactDataArray[tid]);
-			d_parentMortonArray[parentMorton] = parentMorton;
+			d_parentMortonArray[parentMorton] = parentMorton | E_MORTON_32_FLAG;
 			d_nNodesArray[tid] = 8;
 		}
 	}
@@ -227,147 +227,286 @@ __global__ void cpNumNodes(const size_t n,
 
 // 根据d_sumNodesArray和d_pactVoxelArray(存储了莫顿码)设置节点数组，本质也是compact
 // blockSize必须是32的整数倍，因为最底层节点个数是8的整数倍
-__global__ void createNode(const size_t nNodes,
-	const size_t pactSize,
+//__global__ void createNode(const size_t nNodes,
+//	const size_t pactSize,
+//	const size_t* d_sumNodesArray,
+//	const uint32_t* d_pactDataArray,
+//	const Eigen::Vector3f* d_gridOrigin,
+//	const float* d_width,
+//	SVONode* d_nodeArray/*,
+//	size_t* d_morton2Idx*/)
+//{
+//	extern __shared__ uint32_t sh_nodeMorton[]; // blockSize
+//
+//	//cg::thread_block ctb = cg::this_thread_block();
+//	//cg::thread_group tile8 = cg::tiled_partition(ctb, 8);
+//
+//	size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
+//
+//	const Eigen::Vector3f gridOrigin = *d_gridOrigin;
+//	const float width = *d_width;
+//	/*sh_nodeMorton[threadIdx.x / 8] = 0; // 默认是0
+//	__syncthreads();*/
+//
+//	if (tid < nNodes)
+//	{
+//		uint16_t x, y, z;
+//		if (tid < pactSize)
+//		{
+//			const int begSumNodes = d_sumNodesArray[blockIdx.x * blockDim.x];
+//			/*if (threadIdx.x == 0) sh_nodeMorton[0] = d_sumNodesArray[blockIdx.x * blockDim.x];
+//			__syncthreads();*/
+//
+//			const uint32_t key = d_pactDataArray[tid] & LOWER_3BIT_MASK;
+//			const uint32_t morton = d_pactDataArray[tid] & D_MORTON_32_FLAG; // 去除符号位的实际莫顿码
+//			// 得到mortonCode对应的实际存储节点的位置
+//			const size_t address = d_sumNodesArray[tid] + key;
+//
+//			/*if (morton == 392)
+//			{
+//				printf("tid = %d, begSumNodes = %d, key = %d, d_pact = %d, morton = %d, d_sumNodesArray = %d, address = %d\n",
+//					tid, (int)begSumNodes, (int)key, (int)(d_pactDataArray[tid] & D_MORTON_32_FLAG), (int)morton, (int)d_sumNodesArray[tid], (int)address);
+//			}*/
+//
+//			d_nodeArray[address].mortonCode = morton;
+//			morton3D_32_decode(morton, x, y, z);
+//			d_nodeArray[address].origin = gridOrigin + width * Eigen::Vector3f((float)x, (float)y, (float)z);
+//			d_nodeArray[address].width = width;
+//
+//			//d_morton2Idx[morton] = address; // 莫顿码到节点数组下标的映射
+//
+//			// (d_pactDataArray[tid] / 8) * 8 得到d_pactDataArray[tid](莫顿码)对应的以8为整数倍的下标
+//			// 用于计算那些在这个if中没计算出来的节点莫顿码
+//			//if ((morton / 8) * 8 != 0) sh_nodeMorton[threadIdx.x / 8] = (morton / 8) * 8; // 八个节点为一组
+//			const int idx = (d_sumNodesArray[tid] - begSumNodes) / 8;
+//			sh_nodeMorton[idx] = (morton / 8) * 8;
+//
+//			if (tid == 259)
+//			{
+//				printf("d_sumNodesArray[%d] = %d, begSumNodes = %d, morton = %d, sh_nodeMorton = \n",
+//					tid, d_sumNodesArray[tid], begSumNodes, (int)morton, (int)(sh_nodeMorton[idx]));
+//			}
+//		}
+//		//cg::sync(tile8);
+//		__syncthreads();
+//
+//		/*if (tid == 159)
+//		{
+//			printf("sh_nodeMorton = %d\n", (int)sh_nodeMorton[32]);
+//		}*/
+//
+//		// 计算不在voxel里的节点的莫顿码
+//		if (d_nodeArray[tid].mortonCode == 0)
+//		{
+//			if (tid == 259)
+//			{
+//				printf("threadIdx.x = %d, sh_nodeMorton[%d] = %d\n", threadIdx.x, threadIdx.x / 8, (int)(sh_nodeMorton[threadIdx.x / 8]));
+//			}
+//
+//			// threadIdx.x / 8不会越界，因为最坏情况也是连续7个CNode都是同一个父亲，也就是最多连续7个CNode的d_sumNodesArray是一样的
+//			const uint32_t morton = (tid & LOWER_3BIT_MASK) + sh_nodeMorton[threadIdx.x / 8];
+//			d_nodeArray[tid].mortonCode = morton;
+//			morton3D_32_decode(morton, x, y, z);
+//			d_nodeArray[tid].origin = gridOrigin + width * Eigen::Vector3f((float)x, (float)y, (float)z);
+//			d_nodeArray[tid].width = width;
+//
+//			//d_morton2Idx[morton] = tid;
+//		}
+//	}
+//}
+
+//__global__ void createNode(const size_t nNodes,
+//	const size_t pactSize,
+//	const size_t d_preChildDepthTreeNodes, // 子节点层的前面所有层的节点数量(exclusive scan)，用于确定在总节点数组中的位置
+//	const size_t d_preDepthTreeNodes, // 当前层的前面所有层的节点数量(exclusive scan)，用于确定在总节点数组中的位置
+//	const size_t* d_sumNodesArray, // 这一层的节点数量inclusive scan数组
+//	const uint32_t* d_pactDataArray,
+//	const Eigen::Vector3f* d_gridOrigin,
+//	const float* d_width,
+//	SVONode* d_nodeArray,
+//	SVONode* d_childArray/*,
+//	size_t* d_morton2Idx*/)
+//{
+//	extern __shared__ uint32_t sh_nodeMorton[]; // blockSize / 8，数值为8的整数倍
+//
+//	/*cg::thread_block ctb = cg::this_thread_block();
+//	cg::thread_group tile8 = cg::tiled_partition(ctb, 8);*/
+//
+//	size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
+//	const Eigen::Vector3f gridOrigin = *d_gridOrigin;
+//	const float width = *d_width;
+//	/*sh_nodeMorton[threadIdx.x / 8] = 0; // 默认是0
+//	__syncthreads();*/
+//
+//	if (tid < nNodes)
+//	{
+//		uint16_t x, y, z;
+//		if (tid < pactSize)
+//		{
+//			const int begSumNodes = d_sumNodesArray[blockIdx.x * blockDim.x];
+//			/*const size_t preChildDepthTreeNodes = *d_preChildDepthTreeNodes;
+//			const size_t preDepthTreeNodes = *d_preDepthTreeNodes;*/
+//
+//			const uint32_t key = d_pactDataArray[tid] & LOWER_3BIT_MASK;
+//			const uint32_t morton = d_pactDataArray[tid] & D_MORTON_32_FLAG;
+//			const size_t address = d_sumNodesArray[tid] + key;
+//
+//			SVONode& tNode = d_nodeArray[address];
+//			tNode.mortonCode = morton;
+//			morton3D_32_decode(morton, x, y, z);
+//			tNode.origin = gridOrigin + width * Eigen::Vector3f((float)x, (float)y, (float)z);
+//			tNode.width = width;
+//			tNode.isLeaf = false;
+//
+//			/*if (tid == 0) printf("d_preChildDepthTreeNodes = %llu, d_preDepthTreeNodes = %llu\n", d_preChildDepthTreeNodes, d_preDepthTreeNodes);
+//			if (tid == 0) printf("width = %f\n", width);*/
+//
+//#pragma unroll
+//			for (int i = 0; i < 8; ++i)
+//			{
+//				tNode.childs[i] = d_preChildDepthTreeNodes + tid * 8 + i;
+//				d_childArray[tid * 8 + i].parent = d_preDepthTreeNodes + tid;
+//				//if (tid == 0 && i == 0) printf("child = %d, parent = %d\n", d_nodeArray[address].childs[i], d_childArray[tid * 8 + i].parent);
+//			}
+//
+//			//d_morton2Idx[morton] = address; // 莫顿码到节点数组下标的映射
+//
+//			// (d_pactDataArray[tid] / 8) * 8 得到d_pactDataArray[tid](莫顿码)对应的以8为整数倍的下标
+//			// 用于计算那些在这个if中没计算出来的节点莫顿码
+//			//if ((morton / 8) * 8 != 0) sh_nodeMorton[threadIdx.x / 8] = (morton / 8) * 8; // 八个节点为一组
+//			const int idx = (d_sumNodesArray[tid] - begSumNodes) / 8;
+//			sh_nodeMorton[idx] = (morton / 8) * 8;
+//		}
+//		//cg::sync(tile8);
+//		__syncthreads();
+//
+//		// 计算不在voxel里的节点的莫顿码(此时的节点为叶子节点)
+//		SVONode& tNode = d_nodeArray[tid];
+//		if (tNode.mortonCode == 0)
+//		{
+//			const uint32_t morton = (tid & LOWER_3BIT_MASK) + sh_nodeMorton[threadIdx.x / 8];
+//
+//			tNode.mortonCode = morton;
+//			morton3D_32_decode(morton, x, y, z);
+//			tNode.origin = gridOrigin + width * Eigen::Vector3f((float)x, (float)y, (float)z);
+//			tNode.width = width;
+//
+//			//d_morton2Idx[morton] = tid;
+//		}
+//	}
+//}
+
+__global__ void createNode_1(const size_t pactSize,
 	const size_t* d_sumNodesArray,
 	const uint32_t* d_pactDataArray,
 	const Eigen::Vector3f* d_gridOrigin,
 	const float* d_width,
-	SVONode* d_nodeArray/*,
-	size_t* d_morton2Idx*/)
+	uint32_t* d_begMortonArray,
+	SVONode* d_nodeArray)
 {
-	extern __shared__ uint32_t sh_nodeMorton[]; // blockSize / 8，数值为8的整数倍
-
-	//cg::thread_block ctb = cg::this_thread_block();
-	//cg::thread_group tile8 = cg::tiled_partition(ctb, 8);
-
 	size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
 
-	const Eigen::Vector3f gridOrigin = *d_gridOrigin;
-	const float width = *d_width;
-	/*sh_nodeMorton[threadIdx.x / 8] = 0; // 默认是0
-	__syncthreads();*/
-
-	if (tid < nNodes)
+	uint16_t x, y, z;
+	if (tid < pactSize)
 	{
-		uint16_t x, y, z;
-		if (tid < pactSize)
-		{
-			const int begSumNodes = d_sumNodesArray[blockIdx.x * blockDim.x];
-			/*if (threadIdx.x == 0) sh_nodeMorton[0] = d_sumNodesArray[blockIdx.x * blockDim.x];
-			__syncthreads();*/
+		const Eigen::Vector3f gridOrigin = *d_gridOrigin;
+		const float width = *d_width;
 
-			const uint32_t key = d_pactDataArray[tid] & LOWER_3BIT_MASK;
-			const uint32_t morton = d_pactDataArray[tid] & D_MORTON_32_FLAG; // 去除符号位的实际莫顿码
-			// 得到mortonCode对应的实际存储节点的位置
-			const size_t address = d_sumNodesArray[tid] + key;
+		const int sumNodes = d_sumNodesArray[tid];
+		const uint32_t pactData = d_pactDataArray[tid];
 
-			/*if (morton == 392)
-			{
-				printf("tid = %d, begSumNodes = %d, key = %d, d_pact = %d, morton = %d, d_sumNodesArray = %d, address = %d\n", 
-					tid, (int)begSumNodes, (int)key, (int)(d_pactDataArray[tid] & D_MORTON_32_FLAG), (int)morton, (int)d_sumNodesArray[tid], (int)address);
-			}*/
+		const uint32_t key = pactData & LOWER_3BIT_MASK;
+		const uint32_t morton = pactData & D_MORTON_32_FLAG; // 去除符号位的实际莫顿码
+		// 得到mortonCode对应的实际存储节点的位置
+		const size_t address = sumNodes + key;
 
-			d_nodeArray[address].mortonCode = morton;
-			morton3D_32_decode(morton, x, y, z);
-			d_nodeArray[address].origin = gridOrigin + width * Eigen::Vector3f((float)x, (float)y, (float)z);
-			d_nodeArray[address].width = width;
+		SVONode& tNode = d_nodeArray[address];
+		tNode.mortonCode = morton;
+		morton3D_32_decode(morton, x, y, z);
+		tNode.origin = gridOrigin + width * Eigen::Vector3f((float)x, (float)y, (float)z);
+		tNode.width = width;
 
-			//d_morton2Idx[morton] = address; // 莫顿码到节点数组下标的映射
-
-			// (d_pactDataArray[tid] / 8) * 8 得到d_pactDataArray[tid](莫顿码)对应的以8为整数倍的下标
-			// 用于计算那些在这个if中没计算出来的节点莫顿码
-			//if ((morton / 8) * 8 != 0) sh_nodeMorton[threadIdx.x / 8] = (morton / 8) * 8; // 八个节点为一组
-			const int idx = (d_sumNodesArray[tid] - begSumNodes) / 8;
-			sh_nodeMorton[idx] = (morton / 8) * 8;
-		}
-		//cg::sync(tile8);
-		__syncthreads();
-
-		/*if (tid == 159)
-		{
-			printf("sh_nodeMorton = %d\n", (int)sh_nodeMorton[32]);
-		}*/
-
-		// 计算不在voxel里的节点的莫顿码
-		if (d_nodeArray[tid].mortonCode == 0)
-		{
-			// threadIdx.x / 8不会越界，因为最坏情况也是连续7个CNode都是同一个父亲，也就是最多连续7个CNode的d_sumNodesArray是一样的
-			const uint32_t morton = (tid & LOWER_3BIT_MASK) + sh_nodeMorton[threadIdx.x / 8];
-			d_nodeArray[tid].mortonCode = morton;
-			morton3D_32_decode(morton, x, y, z);
-			d_nodeArray[tid].origin = gridOrigin + width * Eigen::Vector3f((float)x, (float)y, (float)z);
-			d_nodeArray[tid].width = width;
-
-			//d_morton2Idx[morton] = tid;
-		}
+		d_begMortonArray[tid] = (morton / 8) * 8;
 	}
 }
 
-__global__ void createNode(const size_t nNodes,
-	const size_t pactSize,
+__global__ void createNode_2(const size_t pactSize,
 	const size_t d_preChildDepthTreeNodes, // 子节点层的前面所有层的节点数量(exclusive scan)，用于确定在总节点数组中的位置
 	const size_t d_preDepthTreeNodes, // 当前层的前面所有层的节点数量(exclusive scan)，用于确定在总节点数组中的位置
 	const size_t* d_sumNodesArray, // 这一层的节点数量inclusive scan数组
 	const uint32_t* d_pactDataArray,
 	const Eigen::Vector3f* d_gridOrigin,
 	const float* d_width,
+	uint32_t* d_begMortonArray,
 	SVONode* d_nodeArray,
-	SVONode* d_childArray/*,
-	size_t* d_morton2Idx*/)
+	SVONode* d_childArray)
 {
-	extern __shared__ uint32_t sh_nodeMorton[]; // blockSize / 8，数值为8的整数倍
-
-	cg::thread_block ctb = cg::this_thread_block();
-	cg::thread_group tile8 = cg::tiled_partition(ctb, 8);
-
 	size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
-	const Eigen::Vector3f gridOrigin = *d_gridOrigin;
-	const float width = *d_width;
-	/*sh_nodeMorton[threadIdx.x / 8] = 0; // 默认是0
-	__syncthreads();*/
 
+	uint16_t x, y, z;
+	if (tid < pactSize)
+	{
+		const Eigen::Vector3f gridOrigin = *d_gridOrigin;
+		const float width = *d_width;
+
+		const int sumNodes = d_sumNodesArray[tid];
+		const uint32_t pactData = d_pactDataArray[tid];
+
+		const uint32_t key = pactData & LOWER_3BIT_MASK;
+		const uint32_t morton = pactData & D_MORTON_32_FLAG;
+		const size_t address = sumNodes + key;
+
+		SVONode& tNode = d_nodeArray[address];
+		tNode.mortonCode = morton;
+		morton3D_32_decode(morton, x, y, z);
+		tNode.origin = gridOrigin + width * Eigen::Vector3f((float)x, (float)y, (float)z);
+		tNode.width = width;
+		tNode.isLeaf = false;
+
+		printf("tid = %llu, morton = %d\n", tid, (int)(morton));
+		d_begMortonArray[tid] = (morton / 8) * 8;
+
+#pragma unroll
+		for (int i = 0; i < 8; ++i)
+		{
+			tNode.childs[i] = d_preChildDepthTreeNodes + tid * 8 + i;
+			d_childArray[tid * 8 + i].parent = d_preDepthTreeNodes + tid;
+		}
+	}
+}
+
+__global__ void createRemainNode(const size_t nNodes,
+	const Eigen::Vector3f* d_gridOrigin,
+	const float* d_width,
+	const uint32_t* d_begMortonArray,
+	SVONode* d_nodeArray)
+{
+	extern __shared__ uint32_t sh_begMortonArray[];
+	size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
+
+	uint16_t x, y, z;
 	if (tid < nNodes)
 	{
-		uint16_t x, y, z;
-		if (tid < pactSize)
-		{
-			const uint32_t key = d_pactDataArray[tid] & LOWER_3BIT_MASK;
-			const uint32_t morton = d_pactDataArray[tid] & D_MORTON_32_FLAG;
-			const size_t address = d_sumNodesArray[tid] + key;
+		sh_begMortonArray[threadIdx.x / 8] = d_begMortonArray[tid / 8];
+		/*printf("threadIdx.x = %d, tid = %llu, d_begMortonArray[%llu] = %d, sh_begMortonArray[%d] = %d\n",
+			threadIdx.x, tid, tid / 8, (int)d_begMortonArray[tid / 8], threadIdx.x / 8, (int)sh_begMortonArray[threadIdx.x / 8]);*/
+		__syncthreads();
 
-			d_nodeArray[address].mortonCode = morton;
-			morton3D_32_decode(morton, x, y, z);
-			d_nodeArray[address].origin = gridOrigin + width * Eigen::Vector3f((float)x, (float)y, (float)z);
-			d_nodeArray[address].width = width;
-			d_nodeArray[address].isLeaf = false;
-
-			for (int i = 0; i < 8; ++i)
-			{
-				d_nodeArray[address].childs[i] = d_preChildDepthTreeNodes + tid * 8 + i;
-				d_childArray[tid * 8 + i].parent = d_preDepthTreeNodes + tid;
-			}
-
-			//d_morton2Idx[morton] = address; // 莫顿码到节点数组下标的映射
-
-			// (d_pactDataArray[tid] / 8) * 8 得到d_pactDataArray[tid](莫顿码)对应的以8为整数倍的下标
-			// 用于计算那些在这个if中没计算出来的节点莫顿码
-			if ((morton / 8) * 8 != 0) sh_nodeMorton[threadIdx.x / 8] = (morton / 8) * 8; // 八个节点为一组
-		}
-		cg::sync(tile8);
-		//__syncthreads();
-
-		// 计算不在voxel里的节点的莫顿码(此时的节点为叶子节点)
 		if (d_nodeArray[tid].mortonCode == 0)
 		{
-			const uint32_t morton = (tid & LOWER_3BIT_MASK) + sh_nodeMorton[threadIdx.x / 8];
+			const Eigen::Vector3f gridOrigin = *d_gridOrigin;
+			const float width = *d_width;
 
-			d_nodeArray[tid].mortonCode = morton;
+			const uint32_t key = tid & LOWER_3BIT_MASK;
+			const uint32_t morton = sh_begMortonArray[threadIdx.x / 8] + key;
+
+			SVONode& tNode = d_nodeArray[tid];
+			tNode.mortonCode = morton;
+			//printf("tid = %llu, morton = %d\n", tid, (int)(d_nodeArray[tid].mortonCode));
+
 			morton3D_32_decode(morton, x, y, z);
-			d_nodeArray[tid].origin = gridOrigin + width * Eigen::Vector3f((float)x, (float)y, (float)z);
-			d_nodeArray[tid].width = width;
-
-			//d_morton2Idx[morton] = tid;
+			tNode.origin = gridOrigin + width * Eigen::Vector3f((float)x, (float)y, (float)z);
+			tNode.width = width;
 		}
 	}
 }
@@ -409,6 +548,7 @@ void SparseVoxelOctree::createOctree()
 	thrust::device_vector<short int> d_numTreeNodesArray; // 节点数量记录数组
 	thrust::device_vector<size_t> d_sumTreeNodesArray; // inlusive scan
 	thrust::device_vector<size_t> d_esumTreeNodesArray; // 存储每一层节点数量的exclusive scan数组
+	thrust::device_vector<uint32_t> d_begMortonArray;
 	thrust::device_vector<SVONode> d_nodeArray; // 存储某一层的节点数组
 	thrust::device_vector<SVONode> d_SVONodeArray; // save all sparse octree nodes
 
@@ -429,7 +569,7 @@ void SparseVoxelOctree::createOctree()
 
 		// create octree
 		// 最后出来的树会比原始模型大7个格子, TODO: 到最顶层的时候只建立与模型bb相同的一个格子，它的周围7个格子不要建出来
-		//while (true)
+	while (true)
 	{
 		// compute the number of 'coarse nodes'(eg: voxels)
 		//size_t pactCNodeArraySize = 0;
@@ -441,12 +581,12 @@ void SparseVoxelOctree::createOctree()
 			if (d_esumCNodesArray[i] != 0) std::cout << d_esumCNodesArray[i] << std::endl;*/
 		size_t numCNodes = *(d_esumCNodesArray.rbegin()) + *(d_isValidCNodeArray.rbegin());
 		//std::cout << "numCNodes = " << numCNodes << "\n--------\n";
-		//if (!numCNodes) { printf("Sparse Voxel Octree depth: %d\n", treeDepth); break; }
+		if (!numCNodes) { printf("Sparse Voxel Octree depth: %d\n", treeDepth); break; }
 
 		treeDepth++;
 
 		// compact coarse node array
-		resizeThrust(d_pactCNodeArray, numCNodes);
+		d_pactCNodeArray.clear(); resizeThrust(d_pactCNodeArray, numCNodes);
 		getOccupancyMaxPotentialBlockSize(gridCNodeSize, minGridSize, blockSize, gridSize, compactArray, 0, 0);
 		compactArray << <gridSize, blockSize >> > (gridCNodeSize, d_isValidCNodeArray.data().get(),
 			d_CNodeMortonArray.data().get(), d_esumCNodesArray.data().get(), d_pactCNodeArray.data().get());
@@ -474,22 +614,32 @@ void SparseVoxelOctree::createOctree()
 		if (numCNodes > 1)
 		{
 			resizeThrust(d_numTreeNodesArray, numCNodes, (short int)0);
-			resizeThrust(d_CNodeMortonArray, gridTreeNodeSize, (uint32_t)0); // 此时用于记录父节点层的coarse node
+			d_CNodeMortonArray.clear(); resizeThrust(d_CNodeMortonArray, gridTreeNodeSize, (uint32_t)0); // 此时用于记录父节点层的coarse node
 			getOccupancyMaxPotentialBlockSize(numCNodes, minGridSize, blockSize, gridSize, cpNumNodes, 0, 0);
 			const uint32_t firstMortonCode = getParentMorton(d_pactCNodeArray[0]);
-			d_CNodeMortonArray[firstMortonCode] = firstMortonCode;
+			d_CNodeMortonArray[firstMortonCode] = firstMortonCode | E_MORTON_32_FLAG;
 			cpNumNodes << <gridSize, blockSize >> > (numCNodes, d_pactCNodeArray.data().get(), d_numTreeNodesArray.data().get(), d_CNodeMortonArray.data().get());
+			getLastCudaError("Kernel 'cpNumNodes' launch failed!\n");
 			resizeThrust(d_sumTreeNodesArray, numCNodes, (size_t)0); // inlusive scan
 			thrust::inclusive_scan(d_numTreeNodesArray.begin(), d_numTreeNodesArray.end(), d_sumTreeNodesArray.begin());
 
+			vector<uint32_t> h_CNodeMortonArray(numCNodes, 0);
+			CUDA_CHECK(cudaMemcpy(h_CNodeMortonArray.data(), d_CNodeMortonArray.data().get(), sizeof(uint32_t) * numCNodes, cudaMemcpyDeviceToHost));
+			for (int i = 0; i < h_CNodeMortonArray.size(); ++i)
+				if (h_CNodeMortonArray[i] != 0) std::cout << "parent: " << (h_CNodeMortonArray[i] & D_MORTON_32_FLAG) << std::endl;
+			std::cout << "--------\n";
+
+			std::cout << "current coarse node morton:\n";
 			vector<short> h_numTreeNodesArray(numCNodes, 0);
+			vector<size_t> h_sumTreeNodesArray(numCNodes, 0);
 			CUDA_CHECK(cudaMemcpy(h_numTreeNodesArray.data(), d_numTreeNodesArray.data().get(), sizeof(short) * numCNodes, cudaMemcpyDeviceToHost));
+			CUDA_CHECK(cudaMemcpy(h_sumTreeNodesArray.data(), d_sumTreeNodesArray.data().get(), sizeof(size_t) * numCNodes, cudaMemcpyDeviceToHost));
 			for (int i = 0; i < h_numTreeNodesArray.size(); ++i)
 				if (i == 0)
-					std::cout << (h_pactCNodeArray[i] & D_MORTON_32_FLAG) << ", " << h_numTreeNodesArray[i] << std::endl;
+					std::cout << (h_pactCNodeArray[i] & D_MORTON_32_FLAG) << ", " << h_numTreeNodesArray[i] << ", " << h_sumTreeNodesArray[i] << std::endl;
 				else
 					std::cout << (h_pactCNodeArray[i] & D_MORTON_32_FLAG) << ", " << (h_pactCNodeArray[i - 1] & D_MORTON_32_FLAG)
-					<< ", " << h_numTreeNodesArray[i] << std::endl;
+					<< ", " << h_numTreeNodesArray[i] << ", " << h_sumTreeNodesArray[i] << std::endl;
 			std::cout << "--------\n";
 
 			numNodes = *(d_sumTreeNodesArray.rbegin()) + 8;
@@ -497,38 +647,88 @@ void SparseVoxelOctree::createOctree()
 		}
 
 		// set octree node array
-		resizeThrust(d_nodeArray, numNodes, SVONode());
+		d_nodeArray.clear(); resizeThrust(d_nodeArray, numNodes, SVONode());
 		uint32_t maxMortonCode = (*d_pactCNodeArray.rbegin()) & D_MORTON_32_FLAG;
 		//resizeThrust(d_morton2Idx, gridTreeNodeSize);
-		blockSize = 512; gridSize = (numNodes + blockSize - 1) / blockSize;
+		d_begMortonArray.clear(); resizeThrust(d_begMortonArray, numCNodes);
 		if (treeDepth < 2)
 		{
-			createNode << <gridSize, blockSize, sizeof(uint32_t)* blockSize >> > (numNodes, numCNodes, d_sumTreeNodesArray.data().get(),
-				d_pactCNodeArray.data().get(), d_gridOrigin, d_unitNodeWidth, d_nodeArray.data().get()/*, d_morton2Idx.data().get()*/);
-			getLastCudaError("Kernel 'createNode' launch failed!\n");
-			//cudaDeviceSynchronize();
+			//createNode << <gridSize, blockSize, sizeof(uint32_t)* blockSize >> > (numNodes, numCNodes, d_sumTreeNodesArray.data().get(),
+			//	d_pactCNodeArray.data().get(), d_gridOrigin, d_unitNodeWidth, d_nodeArray.data().get()/*, d_morton2Idx.data().get()*/);
+
+			getOccupancyMaxPotentialBlockSize(numCNodes, minGridSize, blockSize, gridSize, createNode_1);
+			createNode_1 << <gridSize, blockSize >> > (numCNodes, d_sumTreeNodesArray.data().get(),
+				d_pactCNodeArray.data().get(), d_gridOrigin, d_unitNodeWidth, d_begMortonArray.data().get(), d_nodeArray.data().get());
+			getLastCudaError("Kernel 'createNode_1' launch failed!\n");
+
 			vector<SVONode> h_nodeArray(numNodes);
 			CUDA_CHECK(cudaMemcpy(h_nodeArray.data(), d_nodeArray.data().get(), sizeof(SVONode) * numNodes, cudaMemcpyDeviceToHost));
 			for (int i = 0; i < h_nodeArray.size(); ++i)
-				std::cout << (h_nodeArray[i].mortonCode) << std::endl;
+				std::cout << "node morton: " << (h_nodeArray[i].mortonCode) << std::endl;
 			std::cout << "--------\n";
 
 			d_esumTreeNodesArray.push_back(0);
 		}
 		else
 		{
-			//createNode << <gridSize, blockSize, sizeof(uint32_t)* blockSize >> > (numNodes, numCNodes, *(d_esumTreeNodesArray.rbegin() + 1), *(d_esumTreeNodesArray.rbegin()),
+			//createNode << <gridSize, blockSize, sizeof(uint32_t)* blockSize >> > (numNodes, numCNodes,
+			//	*(d_esumTreeNodesArray.rbegin() + 1), *(d_esumTreeNodesArray.rbegin()),
 			//	d_sumTreeNodesArray.data().get(), d_pactCNodeArray.data().get(), d_gridOrigin, d_unitNodeWidth, d_nodeArray.data().get(),
-			//	(d_allSVONodeArray.data() + d_allSVONodeArray.size() - 1)->data().get()/*, d_morton2Idx.data().get()*/);
-			createNode << <gridSize, blockSize, sizeof(uint32_t)* blockSize >> > (numNodes, numCNodes, *(d_esumTreeNodesArray.rbegin() + 1), *(d_esumTreeNodesArray.rbegin()),
-				d_sumTreeNodesArray.data().get(), d_pactCNodeArray.data().get(), d_gridOrigin, d_unitNodeWidth, d_nodeArray.data().get(),
-				(d_SVONodeArray.data() + (*d_esumTreeNodesArray.rbegin() + 1)).get()/*, d_morton2Idx.data().get()*/);
-			getLastCudaError("Kernel 'createNode' launch failed!\n");
+			//	(d_SVONodeArray.data() + (*(d_esumTreeNodesArray.rbegin() + 1))).get()/*, d_morton2Idx.data().get()*/);
+
+			getOccupancyMaxPotentialBlockSize(numCNodes, minGridSize, blockSize, gridSize, createNode_2);
+			createNode_2 << <gridSize, blockSize >> > (numCNodes, *(d_esumTreeNodesArray.rbegin() + 1), *(d_esumTreeNodesArray.rbegin()),
+				d_sumTreeNodesArray.data().get(), d_pactCNodeArray.data().get(), d_gridOrigin, d_unitNodeWidth, d_begMortonArray.data().get(),
+				d_nodeArray.data().get(), (d_SVONodeArray.data() + (*(d_esumTreeNodesArray.rbegin() + 1))).get());
+			getLastCudaError("Kernel 'createNode_2' launch failed!\n");
+
+			vector<SVONode> h_nodeArray(numNodes);
+			CUDA_CHECK(cudaMemcpy(h_nodeArray.data(), d_nodeArray.data().get(), sizeof(SVONode) * numNodes, cudaMemcpyDeviceToHost));
+			for (int i = 0; i < h_nodeArray.size(); ++i)
+				std::cout << "node morton: " << (h_nodeArray[i].mortonCode) << std::endl;
+			std::cout << "--------\n";
 		}
+		auto newEndOfBegMorton = thrust::unique(d_begMortonArray.begin(), d_begMortonArray.end());
+		resizeThrust(d_begMortonArray, newEndOfBegMorton - d_begMortonArray.begin());
+
+		for (int i = 0; i < d_begMortonArray.size(); ++i)
+			std::cout << "begMorton: " << d_begMortonArray[i] << std::endl;
+		std::cout << "--------\n";
+
+		blockSize = 256; gridSize = (numNodes + blockSize - 1) / blockSize;
+		createRemainNode << <gridSize, blockSize, sizeof(uint32_t)* blockSize / 8 >> > (numNodes, d_gridOrigin, d_unitNodeWidth,
+			d_begMortonArray.data().get(), d_nodeArray.data().get());
+		getLastCudaError("Kernel 'createRemainNode' launch failed!\n");
+
+		vector<SVONode> h_nodeArray(numNodes);
+		CUDA_CHECK(cudaMemcpy(h_nodeArray.data(), d_nodeArray.data().get(), sizeof(SVONode) * numNodes, cudaMemcpyDeviceToHost));
+		for (int i = 0; i < h_nodeArray.size(); ++i)
+			std::cout << "all node morton: " << (h_nodeArray[i].mortonCode) << std::endl;
+		std::cout << "--------\n";
+
 		d_SVONodeArray.insert(d_SVONodeArray.end(), d_nodeArray.begin(), d_nodeArray.end());
 		//d_allSVONodeArray.push_back(d_nodeArray);
 		//d_allMorton2Idx.push_back(d_morton2Idx);
+
+		if (treeDepth >= 2)
+		{
+			vector<SVONode> h_SVONodeArray(d_SVONodeArray.size());
+			CUDA_CHECK(cudaMemcpy(h_SVONodeArray.data(), d_SVONodeArray.data().get(), sizeof(SVONode) * d_SVONodeArray.size(), cudaMemcpyDeviceToHost));
+			for (int i = 0; i < h_SVONodeArray.size(); ++i)
+			{
+				std::cout << (h_SVONodeArray[i].parent) << " -- ";
+				for (int j = 0; j < 8; ++j)
+					std::cout << (h_SVONodeArray[i].childs[j]) << ", ";
+				std::cout << '\n';
+			}
+			std::cout << "--------\n";
+		}
+
 		d_esumTreeNodesArray.push_back(numNodes + (*d_esumTreeNodesArray.rbegin()));
+
+		/*for (int i = 0; i < d_esumTreeNodesArray.size(); ++i)
+			std::cout << d_esumTreeNodesArray[i] << std::endl;
+		std::cout << "--------\n";*/
 
 		//// special condition
 		//if (treeDepth == 1 && gridCNodeSize == 1) { printf("Sparse Voxel Octree depth: %d\n", treeDepth); break; }
@@ -539,17 +739,16 @@ void SparseVoxelOctree::createOctree()
 		numParentCNodes = (numParentCNodes & D_MORTON_32_FLAG) + isValidMorton;
 		if (numParentCNodes != 0)
 		{
-			d_CNodeMortonArray.resize(numParentCNodes); d_CNodeMortonArray.shrink_to_fit();
+			resizeThrust(d_CNodeMortonArray, numParentCNodes);
 			unitNodeWidth *= 2.0; CUDA_CHECK(cudaMemcpy(d_unitNodeWidth, &unitNodeWidth, sizeof(float), cudaMemcpyHostToDevice));
-			gridCNodeSize = numNodes / 8; gridTreeNodeSize = gridCNodeSize + 8 - (gridCNodeSize % 8);
-			//if (gridCNodeSize == 0) { printf("Sparse Voxel Octree depth: %d\n", treeDepth); break; }
+			gridCNodeSize = numParentCNodes; gridTreeNodeSize = gridCNodeSize % 8 ? gridCNodeSize + 8 - (gridCNodeSize % 8) : gridCNodeSize;
+			if (numNodes / 8 == 0) { printf("Sparse Voxel Octree depth: %d\n", treeDepth); break; }
 		}
-		//else { printf("Sparse Voxel Octree depth: %d\n", treeDepth); break; }
+		else { printf("Sparse Voxel Octree depth: %d\n", treeDepth); break; }
 	}
 	numTreeNodes = d_esumTreeNodesArray[treeDepth];
 	//TODO: copy to host
 	svoNodeArray.resize(numTreeNodes);
-	CUDA_CHECK(cudaMemcpy(svoNodeArray.data(), d_SVONodeArray.data().get(), sizeof(SVONode) * numTreeNodes, cudaMemcpyDeviceToHost));
 	auto freeResOfCreateTree = [&]()
 	{
 		cleanupThrust(d_CNodeMortonArray);
@@ -568,29 +767,41 @@ void SparseVoxelOctree::createOctree()
 	freeResOfCreateTree();
 
 	constructNodeAtrributes(d_esumTreeNodesArray, d_SVONodeArray);
+	CUDA_CHECK(cudaMemcpy(svoNodeArray.data(), d_SVONodeArray.data().get(), sizeof(SVONode) * numTreeNodes, cudaMemcpyDeviceToHost));
 	cleanupThrust(d_numTreeNodesArray);
+	cleanupThrust(d_SVONodeArray);
 }
 
+__device__ size_t d_topNodeIdx;
+template<bool topFlag>
 __global__ void findNeighbors(const size_t nNodes,
 	const size_t preESumTreeNodes,
 	SVONode* d_nodeArray)
 {
-	size_t tid_x = threadIdx.x + blockIdx.x * blockDim.x;
-	size_t tid_y = threadIdx.y + blockIdx.y * blockDim.y;
-
-	if (tid_x < nNodes && tid_y < 27)
+	if (topFlag)
 	{
-		SVONode t = d_nodeArray[preESumTreeNodes + tid_x];
-		SVONode p = d_nodeArray[t.parent];
-		const uint8_t key = (t.mortonCode) & LOWER_3BIT_MASK;
-		const unsigned int p_neighborIdx = p.neighbors[neighbor_LUTparent[key][tid_y]];
-		if (p_neighborIdx != UINT32_MAX)
-		{
-			SVONode h = d_nodeArray[p_neighborIdx];
-			t.neighbors[tid_y] = h.childs[neighbor_LUTchild[key][tid_y]];
-		}
-		else t.neighbors[tid_y] = UINT32_MAX;
+		d_nodeArray[0].neighbors[13] = d_topNodeIdx;
 	}
+	else
+	{
+		size_t tid_x = threadIdx.x + blockIdx.x * blockDim.x;
+		size_t tid_y = threadIdx.y + blockIdx.y * blockDim.y;
+
+		if (tid_x < nNodes && tid_y < 27)
+		{
+			SVONode t = d_nodeArray[preESumTreeNodes + tid_x];
+			SVONode p = d_nodeArray[t.parent];
+			const uint8_t key = (t.mortonCode) & LOWER_3BIT_MASK;
+			const unsigned int p_neighborIdx = p.neighbors[neighbor_LUTparent[key][tid_y]];
+			if (p_neighborIdx != UINT32_MAX)
+			{
+				SVONode h = d_nodeArray[p_neighborIdx];
+				t.neighbors[tid_y] = h.childs[neighbor_LUTchild[key][tid_y]];
+			}
+			else t.neighbors[tid_y] = UINT32_MAX;
+		}
+	}
+
 }
 
 void SparseVoxelOctree::constructNodeNeighbors(const thrust::device_vector<size_t>& d_esumTreeNodesArray,
@@ -600,22 +811,16 @@ void SparseVoxelOctree::constructNodeNeighbors(const thrust::device_vector<size_
 	blockSize.x = 32, blockSize.y = 32;
 	gridSize.y = 1;
 	// find neighbors(up to bottom)
-	//assert(treeDepth >= 1 && treeDepth == d_allSVONodeArray.size());
-	assert(treeDepth >= 1);
 	if (treeDepth >= 2)
 	{
-		SVONode t = d_SVONodeArray[d_SVONodeArray.size() - 1];
-		t.neighbors[13] = d_SVONodeArray.size() - 1;
-		d_SVONodeArray[d_SVONodeArray.size() - 1] = t;
-		//d_SVONodeArray[d_SVONodeArray.size() - 1].neighbors[13] = d_SVONodeArray.size() - 1;
-		//(d_allSVONodeArray.data() + depth - 1)->data()->neighbors[13] = d_esumTreeNodesArray[depth - 1];
+		const size_t idx = d_SVONodeArray.size() - 1;
+		CUDA_CHECK(cudaMemcpyToSymbol(d_topNodeIdx, &idx, sizeof(size_t)));
+		findNeighbors<true> << <1, 1 >> > (1, 0, (d_SVONodeArray.data() + idx).get());
 		for (int i = treeDepth - 2; i >= 0; --i)
 		{
 			const size_t nNodes = depthNumNodes[i];
 			gridSize.x = (nNodes + blockSize.x - 1) / blockSize.x;
-			/*findNeighbors << <gridSize, blockSize >> > (nNodes, (d_allMorton2Idx.data() + i + 1)->data().get(),
-				(d_allSVONodeArray.data() + i)->data().get(), (d_allSVONodeArray.data() + i + 1)->data().get());*/
-			findNeighbors << <gridSize, blockSize >> > (nNodes, d_esumTreeNodesArray[i], d_SVONodeArray.data().get());
+			findNeighbors<false> << <gridSize, blockSize >> > (nNodes, d_esumTreeNodesArray[i], d_SVONodeArray.data().get());
 		}
 	}
 }
@@ -815,6 +1020,8 @@ void SparseVoxelOctree::writeTree(const std::string base_filename)
 		{
 			std::cout << node.origin.transpose() << std::endl;
 		}*/
+		std::cout << "node.origin = " << node.origin.transpose() << ", node.width = " << node.width << ", node.morton = " << node.mortonCode << '\n';
+
 		write_cube(node.origin, Eigen::Vector3f(node.width, node.width, node.width), output, faceBegIdx);
 	}
 #ifndef SILENT
