@@ -23,6 +23,8 @@ void BaseModel::loadOBJ(const std::string& in_file)
 		{
 			if (sscanf_s(buffer, "f %d//%d %d//%d %d//%d", &f0, &_f0, &f1, &_f1, &f2, &_f2) == 6)
 				idx2Points.emplace_back(Eigen::Vector3i{ f0 - 1, f1 - 1, f2 - 1 });
+			else if (sscanf_s(buffer, "f %d/%d %d/%d %d/%d", &f0, &_f0, &f1, &_f1, &f2, &_f2) == 6)
+				idx2Points.emplace_back(Eigen::Vector3i{ f0 - 1, f1 - 1, f2 - 1 });
 			else if (sscanf_s(buffer, "f %d %d %d", &f0, &f1, &f2) == 3)
 				idx2Points.emplace_back(Eigen::Vector3i{ f0 - 1, f1 - 1, f2 - 1 });
 		}

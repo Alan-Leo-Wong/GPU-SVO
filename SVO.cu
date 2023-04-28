@@ -191,6 +191,7 @@ void SparseVoxelOctree::meshVoxelize(const Eigen::Vector3i* d_surfaceVoxelGridSi
 	surfaceVoxelize << <gridSize, blockSize >> > (nModelTris, d_surfaceVoxelGridSize,
 		d_gridOrigin, d_unitVoxelSize, d_triangleData, d_CNodeMortonArray.data().get());
 	getLastCudaError("Kernel 'surfaceVoxelize' launch failed!\n");
+	cudaDeviceSynchronize();
 }
 
 __global__ void compactArray(const int n,
@@ -463,7 +464,7 @@ __global__ void createNode_2(const size_t pactSize,
 		tNode.width = width;
 		tNode.isLeaf = false;
 
-		printf("tid = %llu, morton = %d\n", tid, (int)(morton));
+		//printf("tid = %llu, morton = %d\n", tid, (int)(morton));
 		d_begMortonArray[tid] = (morton / 8) * 8;
 
 #pragma unroll
@@ -604,7 +605,7 @@ void SparseVoxelOctree::createOctree()
 			vector<uint32_t> voxelArray;
 			voxelArray.resize(numCNodes);
 			CUDA_CHECK(cudaMemcpy(voxelArray.data(), d_pactCNodeArray.data().get(), sizeof(uint32_t) * numCNodes, cudaMemcpyDeviceToHost));
-			writeVoxel(voxelArray, "bunny", unitNodeWidth);
+			writeVoxel(voxelArray, "switchmec", unitNodeWidth);
 		}
 #endif // !NDEBUG
 
@@ -623,13 +624,13 @@ void SparseVoxelOctree::createOctree()
 			resizeThrust(d_sumTreeNodesArray, numCNodes, (size_t)0); // inlusive scan
 			thrust::inclusive_scan(d_numTreeNodesArray.begin(), d_numTreeNodesArray.end(), d_sumTreeNodesArray.begin());
 
-			vector<uint32_t> h_CNodeMortonArray(numCNodes, 0);
+			/*vector<uint32_t> h_CNodeMortonArray(numCNodes, 0);
 			CUDA_CHECK(cudaMemcpy(h_CNodeMortonArray.data(), d_CNodeMortonArray.data().get(), sizeof(uint32_t) * numCNodes, cudaMemcpyDeviceToHost));
 			for (int i = 0; i < h_CNodeMortonArray.size(); ++i)
 				if (h_CNodeMortonArray[i] != 0) std::cout << "parent: " << (h_CNodeMortonArray[i] & D_MORTON_32_FLAG) << std::endl;
-			std::cout << "--------\n";
+			std::cout << "--------\n";*/
 
-			std::cout << "current coarse node morton:\n";
+			/*std::cout << "current coarse node morton:\n";
 			vector<short> h_numTreeNodesArray(numCNodes, 0);
 			vector<size_t> h_sumTreeNodesArray(numCNodes, 0);
 			CUDA_CHECK(cudaMemcpy(h_numTreeNodesArray.data(), d_numTreeNodesArray.data().get(), sizeof(short) * numCNodes, cudaMemcpyDeviceToHost));
@@ -640,7 +641,7 @@ void SparseVoxelOctree::createOctree()
 				else
 					std::cout << (h_pactCNodeArray[i] & D_MORTON_32_FLAG) << ", " << (h_pactCNodeArray[i - 1] & D_MORTON_32_FLAG)
 					<< ", " << h_numTreeNodesArray[i] << ", " << h_sumTreeNodesArray[i] << std::endl;
-			std::cout << "--------\n";
+			std::cout << "--------\n";*/
 
 			numNodes = *(d_sumTreeNodesArray.rbegin()) + 8;
 			depthNumNodes.emplace_back(numNodes);
@@ -660,12 +661,13 @@ void SparseVoxelOctree::createOctree()
 			createNode_1 << <gridSize, blockSize >> > (numCNodes, d_sumTreeNodesArray.data().get(),
 				d_pactCNodeArray.data().get(), d_gridOrigin, d_unitNodeWidth, d_begMortonArray.data().get(), d_nodeArray.data().get());
 			getLastCudaError("Kernel 'createNode_1' launch failed!\n");
+			printf("444\n");
 
-			vector<SVONode> h_nodeArray(numNodes);
+			/*vector<SVONode> h_nodeArray(numNodes);
 			CUDA_CHECK(cudaMemcpy(h_nodeArray.data(), d_nodeArray.data().get(), sizeof(SVONode) * numNodes, cudaMemcpyDeviceToHost));
 			for (int i = 0; i < h_nodeArray.size(); ++i)
 				std::cout << "node morton: " << (h_nodeArray[i].mortonCode) << std::endl;
-			std::cout << "--------\n";
+			std::cout << "--------\n";*/
 
 			d_esumTreeNodesArray.push_back(0);
 		}
@@ -682,35 +684,35 @@ void SparseVoxelOctree::createOctree()
 				d_nodeArray.data().get(), (d_SVONodeArray.data() + (*(d_esumTreeNodesArray.rbegin() + 1))).get());
 			getLastCudaError("Kernel 'createNode_2' launch failed!\n");
 
-			vector<SVONode> h_nodeArray(numNodes);
+			/*vector<SVONode> h_nodeArray(numNodes);
 			CUDA_CHECK(cudaMemcpy(h_nodeArray.data(), d_nodeArray.data().get(), sizeof(SVONode) * numNodes, cudaMemcpyDeviceToHost));
 			for (int i = 0; i < h_nodeArray.size(); ++i)
 				std::cout << "node morton: " << (h_nodeArray[i].mortonCode) << std::endl;
-			std::cout << "--------\n";
+			std::cout << "--------\n";*/
 		}
 		auto newEndOfBegMorton = thrust::unique(d_begMortonArray.begin(), d_begMortonArray.end());
 		resizeThrust(d_begMortonArray, newEndOfBegMorton - d_begMortonArray.begin());
 
-		for (int i = 0; i < d_begMortonArray.size(); ++i)
+		/*for (int i = 0; i < d_begMortonArray.size(); ++i)
 			std::cout << "begMorton: " << d_begMortonArray[i] << std::endl;
-		std::cout << "--------\n";
+		std::cout << "--------\n";*/
 
 		blockSize = 256; gridSize = (numNodes + blockSize - 1) / blockSize;
 		createRemainNode << <gridSize, blockSize, sizeof(uint32_t)* blockSize / 8 >> > (numNodes, d_gridOrigin, d_unitNodeWidth,
 			d_begMortonArray.data().get(), d_nodeArray.data().get());
 		getLastCudaError("Kernel 'createRemainNode' launch failed!\n");
 
-		vector<SVONode> h_nodeArray(numNodes);
+		/*vector<SVONode> h_nodeArray(numNodes);
 		CUDA_CHECK(cudaMemcpy(h_nodeArray.data(), d_nodeArray.data().get(), sizeof(SVONode) * numNodes, cudaMemcpyDeviceToHost));
 		for (int i = 0; i < h_nodeArray.size(); ++i)
 			std::cout << "all node morton: " << (h_nodeArray[i].mortonCode) << std::endl;
-		std::cout << "--------\n";
+		std::cout << "--------\n";*/
 
 		d_SVONodeArray.insert(d_SVONodeArray.end(), d_nodeArray.begin(), d_nodeArray.end());
 		//d_allSVONodeArray.push_back(d_nodeArray);
 		//d_allMorton2Idx.push_back(d_morton2Idx);
 
-		if (treeDepth >= 2)
+		/*if (treeDepth >= 2)
 		{
 			vector<SVONode> h_SVONodeArray(d_SVONodeArray.size());
 			CUDA_CHECK(cudaMemcpy(h_SVONodeArray.data(), d_SVONodeArray.data().get(), sizeof(SVONode) * d_SVONodeArray.size(), cudaMemcpyDeviceToHost));
@@ -722,7 +724,7 @@ void SparseVoxelOctree::createOctree()
 				std::cout << '\n';
 			}
 			std::cout << "--------\n";
-		}
+		}*/
 
 		d_esumTreeNodesArray.push_back(numNodes + (*d_esumTreeNodesArray.rbegin()));
 
@@ -1020,7 +1022,7 @@ void SparseVoxelOctree::writeTree(const std::string base_filename)
 		{
 			std::cout << node.origin.transpose() << std::endl;
 		}*/
-		std::cout << "node.origin = " << node.origin.transpose() << ", node.width = " << node.width << ", node.morton = " << node.mortonCode << '\n';
+		//std::cout << "node.origin = " << node.origin.transpose() << ", node.width = " << node.width << ", node.morton = " << node.mortonCode << '\n';
 
 		write_cube(node.origin, Eigen::Vector3f(node.width, node.width, node.width), output, faceBegIdx);
 	}
