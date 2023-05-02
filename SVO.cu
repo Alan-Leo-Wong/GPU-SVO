@@ -471,7 +471,7 @@ __global__ void createNode_2(const size_t pactSize,
 		for (int i = 0; i < 8; ++i)
 		{
 			tNode.childs[i] = d_preChildDepthTreeNodes + tid * 8 + i;
-			d_childArray[tid * 8 + i].parent = d_preDepthTreeNodes + tid;
+			d_childArray[tid * 8 + i].parent = d_preDepthTreeNodes + sumNodes + key; // +key是因为后面还需要构建remain nodes
 		}
 	}
 }
@@ -599,13 +599,13 @@ void SparseVoxelOctree::createOctree()
 		std::cout << "--------\n";*/
 
 		// 验证体素
-#ifndef NDEBUG
+#ifdef NDEBUG
 		if (treeDepth == 1)
 		{
 			vector<uint32_t> voxelArray;
 			voxelArray.resize(numCNodes);
 			CUDA_CHECK(cudaMemcpy(voxelArray.data(), d_pactCNodeArray.data().get(), sizeof(uint32_t) * numCNodes, cudaMemcpyDeviceToHost));
-			writeVoxel(voxelArray, "switchmec", unitNodeWidth);
+			writeVoxel(voxelArray, "bunny", unitNodeWidth);
 		}
 #endif // !NDEBUG
 
@@ -950,7 +950,8 @@ template <typename T>
 struct uniqueEdge : public thrust::binary_function<T, T, T> {
 	__host__ __device__
 		bool operator()(const T& a, const T& b) {
-		return (a.first.first == b.first.first) && (a.first.second == b.first.second);
+		return ((a.first.first == b.first.first) && (a.first.second == b.first.second))||
+				((a.first.first == b.first.second) && (a.first.second == b.first.first));
 	}
 };
 

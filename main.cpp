@@ -2,9 +2,9 @@
 
 int main(int argc, char** argv)
 {
-    SparseVoxelOctree svo("switchmec.obj", 128, 128, 128);
+    SparseVoxelOctree svo("bunny.obj", 16, 16, 16);
     svo.createOctree();
-    svo.writeTree("switchmec");
+    svo.writeTree("bunny");
     
     return 0;
 }
