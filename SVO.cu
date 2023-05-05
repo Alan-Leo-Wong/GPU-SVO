@@ -209,7 +209,7 @@ __global__ void compactArray(const int n,
 // 计算表面voxel共对应多少个八叉树节点同时设置父节点的莫顿码数组
 __global__ void cpNumNodes(const size_t n,
 	const uint32_t* d_pactDataArray,
-	short int* d_nNodesArray,
+	size_t* d_nNodesArray,
 	uint32_t* d_parentMortonArray)
 {
 	size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -546,7 +546,7 @@ void SparseVoxelOctree::createOctree()
 	thrust::device_vector<bool> d_isValidCNodeArray;
 	thrust::device_vector<size_t> d_esumCNodesArray; // exclusive scan
 	thrust::device_vector<uint32_t> d_pactCNodeArray;
-	thrust::device_vector<short int> d_numTreeNodesArray; // 节点数量记录数组
+	thrust::device_vector<size_t> d_numTreeNodesArray; // 节点数量记录数组
 	thrust::device_vector<size_t> d_sumTreeNodesArray; // inlusive scan
 	thrust::device_vector<size_t> d_esumTreeNodesArray; // 存储每一层节点数量的exclusive scan数组
 	thrust::device_vector<uint32_t> d_begMortonArray;
@@ -614,7 +614,7 @@ void SparseVoxelOctree::createOctree()
 		size_t numNodes = 1;
 		if (numCNodes > 1)
 		{
-			resizeThrust(d_numTreeNodesArray, numCNodes, (short int)0);
+			resizeThrust(d_numTreeNodesArray, numCNodes, (size_t)0);
 			d_CNodeMortonArray.clear(); resizeThrust(d_CNodeMortonArray, gridTreeNodeSize, (uint32_t)0); // 此时用于记录父节点层的coarse node
 			getOccupancyMaxPotentialBlockSize(numCNodes, minGridSize, blockSize, gridSize, cpNumNodes, 0, 0);
 			const uint32_t firstMortonCode = getParentMorton(d_pactCNodeArray[0]);
