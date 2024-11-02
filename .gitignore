@@ -75,6 +75,7 @@ StyleCopReport.xml
 *.ilk
 *.meta
 *.obj
+!bunny.obj
 *.iobj
 *.pch
 *.pdb
@@ -398,3 +399,6 @@ FodyWeavers.xsd
 *.sln.iml
 
 .vs/
+.idea/
+cmake-build-debug/
+cmake-build-release/

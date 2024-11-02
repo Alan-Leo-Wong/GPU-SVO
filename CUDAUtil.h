@@ -1,10 +1,11 @@
 #pragma once
+
 #include <stdio.h>
 #include <iostream>
-#include <Eigen\Dense>
+#include <Eigen/Dense>
 #include <cuda_runtime.h>
-#include <thrust\host_vector.h>
-#include <thrust\device_vector.h>
+#include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
 #include <device_launch_parameters.h>
 
 #ifndef __CUDACC__

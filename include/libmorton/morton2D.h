@@ -9,8 +9,6 @@
 #include "morton2D_LUTs.h"
 #include "morton_common.h"
 
-#define EIGHT_BIT_MASK (morton) 0x000000FF
-
 namespace libmorton {
 
 	// Encode methods

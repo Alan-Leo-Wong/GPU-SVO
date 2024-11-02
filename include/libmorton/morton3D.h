@@ -9,9 +9,6 @@
 #include "morton3D_LUTs.h"
 #include "morton_common.h"
 
-#define EIGHT_BIT_MASK (morton) 0x000000FF
-#define NINE_BIT_MASK (morton) 0x000001FF
-
 namespace libmorton {
 	// AVAILABLE METHODS FOR ENCODING
 	template<typename morton, typename coord> inline CUDA_CALLABLE_MEMBER morton m3D_e_sLUT(const coord x, const coord y, const coord z);
