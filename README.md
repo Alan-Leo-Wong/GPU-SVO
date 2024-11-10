@@ -1,6 +1,6 @@
 # GPU Sparse Voxel Octree
 
-<img src="D:\VSProjects\GPU-SVO\assets\svo.png" alt="svo" style="zoom:33%;" />
+<img src=".\assets\svo.png" alt="svo" style="zoom:33%;" />
 
 This repository contains a GPU-accelerated implementation of a sparse voxel octree (SVO) based on the techniques described in the papers *"Fast Parallel Surface and Solid Voxelization on GPUs"* ([ACM](https://dl.acm.org/doi/10.1145/1882261.1866201)) and *"Data-Parallel Octrees for Surface Reconstruction"* ([IEEE](https://ieeexplore.ieee.org/abstract/document/5473223)). The project leverages CUDA for parallel processing to efficiently voxelized given 3D models and structure them into an SVO using Morton codes.
 
